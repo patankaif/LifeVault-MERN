@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     setToken(null);
     localStorage.removeItem('lifeVaultToken');
-    window.location.href = 'http://localhost:3001/#';
+    window.location.href = import.meta.env.VITE_API_URL || 'http://localhost:3001/#';
   };
 
   const value = {

@@ -1,8 +1,14 @@
 {
   "name": "life-vault",
   "version": "1.0.0",
+  "description": "A comprehensive MERN stack application for preserving, organizing, and sharing memories with loved ones",
   "type": "module",
   "license": "MIT",
+  "author": {
+    "name": "Patan Mohammad Kaif Khan",
+    "email": "patankaif23@gmail.com",
+    "url": "https://github.com/patankaif"
+  },
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/_core/index.ts",
     "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",

@@ -326,15 +326,14 @@ For issues or questions:
 
 MIT License - Feel free to use and modify
 
-## 🎉 Next Steps
+## 👨‍💻 Author & Contact
 
-1. ✅ Complete MongoDB setup
-2. ✅ Create `.env` file
-3. ✅ Run `pnpm install`
-4. ✅ Start with `pnpm dev`
-5. ✅ Test signup/login
-6. ✅ Create vaults and schedule memories
-7. ✅ Deploy when ready
+**Developed by: Patan Mohammad Kaif Khan**
+
+📧 **Email:** patankaif23@gmail.com  
+🔗 **GitHub:** [patankaif](https://github.com/patankaif)  
+💼 **LinkedIn:** [Patan Mohammad Kaif Khan](https://www.linkedin.com/in/patan-mohammad-kaif-khan-36452a32a/)  
+🌐 **Portfolio:** [portfolio-6cth.onrender.com](https://portfolio-6cth.onrender.com)
 
 ---
 

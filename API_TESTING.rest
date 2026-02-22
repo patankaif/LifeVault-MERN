@@ -1,0 +1,164 @@
+### Life Vault API Testing Guide
+### Use with REST Client extension (humao.rest-client)
+
+@baseUrl = http://localhost:3000
+@token = your-jwt-token-here
+
+### ==================== AUTHENTICATION ====================
+
+### 1. Send OTP for Signup
+POST {{baseUrl}}/api/auth/send-otp
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 2. Verify OTP and Create Account
+POST {{baseUrl}}/api/auth/verify-otp
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "otp": "123456",
+  "name": "Test User",
+  "age": 25,
+  "phone": "9876543210",
+  "password": "TestPass123!"
+}
+
+### 3. Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "TestPass123!"
+}
+
+### 4. Forgot Password - Send OTP
+POST {{baseUrl}}/api/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 5. Reset Password
+POST {{baseUrl}}/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "otp": "123456",
+  "newPassword": "NewPass123!"
+}
+
+### ==================== PRESENT VAULT ====================
+
+### 6. Get Present Vault Slots
+GET {{baseUrl}}/api/vaults/present/slots
+Authorization: Bearer {{token}}
+
+### 7. Create Slot in Present Vault
+POST {{baseUrl}}/api/vaults/present/slots
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "slotName": "Birthday Party"
+}
+
+### 8. Add Text to Slot
+POST {{baseUrl}}/api/slots/{slotId}/text
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Had an amazing birthday celebration with friends!"
+}
+
+### 9. Schedule Slot
+POST {{baseUrl}}/api/slots/{slotId}/schedule
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "recipientEmail": "recipient@example.com",
+  "scheduledDate": "2026-03-10T10:00:00Z",
+  "vaultType": "present"
+}
+
+### ==================== FUTURE VAULT ====================
+
+### 10. Get Future Vault Slots
+GET {{baseUrl}}/api/vaults/future/slots
+Authorization: Bearer {{token}}
+
+### 11. Create Slot in Future Vault
+POST {{baseUrl}}/api/vaults/future/slots
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "slotName": "Anniversary"
+}
+
+### ==================== DEATH VAULT ====================
+
+### 12. Get Death Vault Slots
+GET {{baseUrl}}/api/vaults/death/slots
+Authorization: Bearer {{token}}
+
+### 13. Add Recipient to Death Vault Slot
+POST {{baseUrl}}/api/slots/{slotId}/schedule
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "recipientEmail": "mom@example.com",
+  "scheduledDate": "2026-11-10T10:00:00Z",
+  "vaultType": "death"
+}
+
+### ==================== SHARED VAULT ====================
+
+### 14. View Shared Slot
+GET {{baseUrl}}/api/shared-vault/{accessToken}
+
+### ==================== INACTIVITY ====================
+
+### 15. Confirm Alive
+POST {{baseUrl}}/api/confirm-alive/{confirmationToken}
+
+### ==================== SLOT OPERATIONS ====================
+
+### 16. Delete Slot
+DELETE {{baseUrl}}/api/slots/{slotId}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "vaultType": "present"
+}
+
+### 17. Get Slot Details
+GET {{baseUrl}}/api/slots/{slotId}
+Authorization: Bearer {{token}}
+
+### 18. Create Nested Slot
+POST {{baseUrl}}/api/slots/{parentSlotId}/nested
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "slotName": "Dad on a trip"
+}
+
+### ==================== NOTES ====================
+### 
+### 1. Replace {slotId}, {accessToken}, {confirmationToken} with actual values
+### 2. Replace {{token}} with your JWT token from login response
+### 3. Check MongoDB to verify data is being stored correctly
+### 4. Use browser DevTools (F12) to check network requests
+### 5. Check email inbox for OTP codes (may be in spam folder)

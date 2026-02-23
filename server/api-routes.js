@@ -3,7 +3,7 @@ import { storagePut, storageGet } from './storage.ts';
 import * as authUtils from './auth-utils.js';
 import * as vaultUtils from './vault-utils.js';
 import * as inactivityUtils from './inactivity-utils.js';
-import { connectDB } from './db-mongo.js';
+import { connectDB, getDB } from './db-mongo.js';
 
 const router = express.Router();
 

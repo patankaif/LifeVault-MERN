@@ -625,7 +625,20 @@ export default function FutureVault() {
                       <AnimatedButton 
                         className="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-xs" 
                         size="sm" 
-                        onClick={() => setScheduleModal(slot._id)}
+                        onClick={() => {
+                          // Pre-populate form with existing data
+                          setScheduleEmail(slot.scheduledEmail || '');
+                          // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+                          if (slot.scheduledDate) {
+                            const date = new Date(slot.scheduledDate);
+                            const formattedDate = date.toISOString().slice(0, 16);
+                            setScheduleDate(formattedDate);
+                          } else {
+                            setScheduleDate('');
+                          }
+                          setError(''); // Clear any previous error messages
+                          setScheduleModal(slot._id);
+                        }}
                       >
                         Edit
                       </AnimatedButton>
@@ -658,6 +671,17 @@ export default function FutureVault() {
                         return;
                       }
                       
+                      // Pre-populate form with existing data if available
+                      setScheduleEmail(slot.scheduledEmail || '');
+                      // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+                      if (slot.scheduledDate) {
+                        const date = new Date(slot.scheduledDate);
+                        const formattedDate = date.toISOString().slice(0, 16);
+                        setScheduleDate(formattedDate);
+                      } else {
+                        setScheduleDate('');
+                      }
+                      setError(''); // Clear any previous error messages
                       setScheduleModal(slot._id);
                     }}>
                       <Mail size={14} className="mr-1" /> Schedule
@@ -711,6 +735,7 @@ export default function FutureVault() {
                     type="datetime-local" 
                     value={scheduleDate} 
                     onChange={e => setScheduleDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)} // Prevent selecting past dates
                   />
                 </div>
                 {error && !error.includes('valid email') && (

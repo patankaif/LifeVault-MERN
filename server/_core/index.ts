@@ -34,6 +34,11 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  console.log("[Server] Starting server...");
+  console.log(`[Server] NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`[Server] PORT: ${process.env.PORT}`);
+  console.log(`[Server] FRONTEND_URL: ${process.env.FRONTEND_URL}`);
+  
   // Initialize MongoDB and email service
   try {
     // Dynamic imports
@@ -111,7 +116,7 @@ async function startServer() {
   if (!process.env.FRONTEND_URL) {
     process.env.FRONTEND_URL = process.env.NODE_ENV === "development" 
       ? `http://localhost:3005` 
-      : `https://${process.env.VITE_APP_ID}.manus.space`;
+      : `https://life-vault-frontend-p200.onrender.com`; // Use actual production URL
   }
 
   console.log(`[Server] FRONTEND_URL set to: ${process.env.FRONTEND_URL}`);

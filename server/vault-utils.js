@@ -213,11 +213,31 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
   try {
     const db = await getDB();
 
+    // Parse the date properly to avoid timezone issues
+    let parsedDate;
+    try {
+      // If scheduledDate is already a Date object, use it directly
+      if (scheduledDate instanceof Date) {
+        parsedDate = scheduledDate;
+      } else {
+        // Parse the ISO string to maintain the exact time
+        parsedDate = new Date(scheduledDate);
+      }
+      
+      // Validate the parsed date
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+    } catch (error) {
+      console.error('[Vault] Date parsing error:', error);
+      return { success: false, message: 'Invalid date format' };
+    }
+
     // Validate scheduling date based on vault type
     const now = new Date();
     const maxDate = new Date(now.getTime() + (vaultType === 'present' ? PRESENT_VAULT_LIMIT_DAYS : FUTURE_VAULT_LIMIT_DAYS) * 24 * 60 * 60 * 1000);
 
-    if (new Date(scheduledDate) > maxDate) {
+    if (parsedDate > maxDate) {
       return { success: false, message: `Cannot schedule beyond ${vaultType === 'present' ? '1 month' : '9 months'}` };
     }
 
@@ -225,6 +245,8 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
       slotId,
       recipientEmail,
       scheduledDate,
+      scheduledDateType: typeof scheduledDate,
+      parsedDate,
       vaultType
     });
 
@@ -232,7 +254,7 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
       _id: uuidv4(),
       slotId,
       recipientEmail,
-      scheduledDate: new Date(scheduledDate),
+      scheduledDate: parsedDate,
       accessToken: uuidv4(),
       accessTokenExpiresAt: new Date(Date.now() + SHARE_LINK_VALIDITY_DAYS * 24 * 60 * 60 * 1000),
       sent: false,

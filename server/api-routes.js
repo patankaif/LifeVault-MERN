@@ -259,7 +259,18 @@ router.post('/slots/:slotId/media', verifyToken, async (req, res) => {
       return res.json(vaultResult);
     } catch (storageError) {
       console.error('Storage upload failed:', storageError);
-      return res.status(500).json({ success: false, message: storageError.message || 'Upload failed' });
+      // Provide more specific error messages for deployment issues
+      let errorMessage = 'Upload failed';
+      if (storageError.message.includes('ENOENT')) {
+        errorMessage = 'Storage directory not found - please check server configuration';
+      } else if (storageError.message.includes('EACCES')) {
+        errorMessage = 'Permission denied - unable to save file';
+      } else if (storageError.message.includes('ENOSPC')) {
+        errorMessage = 'Storage full - unable to upload file';
+      } else {
+        errorMessage = storageError.message || 'Upload failed';
+      }
+      return res.status(500).json({ success: false, message: errorMessage });
     }
   } catch (error) {
     console.error('Media upload error:', error);

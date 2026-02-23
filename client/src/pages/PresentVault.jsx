@@ -194,7 +194,18 @@ export default function PresentVault() {
           if (!response.ok) {
             const errorText = await response.text();
             console.error('Upload failed:', errorText);
-            setError(`Upload failed: ${response.status}`);
+            // Provide better error messages based on status code
+            let errorMessage = `Upload failed: ${response.status}`;
+            if (response.status === 413) {
+              errorMessage = 'File too large - please upload a smaller file';
+            } else if (response.status === 415) {
+              errorMessage = 'Unsupported file type - please upload images or videos only';
+            } else if (response.status === 429) {
+              errorMessage = 'Too many upload attempts - please wait and try again';
+            } else if (response.status >= 500) {
+              errorMessage = 'Server error - please try again later';
+            }
+            setError(errorMessage);
           } else {
             const data = await response.json();
             if (data.success) {
@@ -211,7 +222,16 @@ export default function PresentVault() {
           }
         } catch (fetchError) {
           console.error('Fetch error:', fetchError);
-          setError('Network error during upload');
+          // Provide more specific error messages for deployment
+          let errorMessage = 'Network error during upload';
+          if (fetchError.message.includes('Failed to fetch')) {
+            errorMessage = 'Network connection failed - please check your internet connection';
+          } else if (fetchError.message.includes('CORS')) {
+            errorMessage = 'CORS error - please check server configuration';
+          } else if (fetchError.message.includes('timeout')) {
+            errorMessage = 'Upload timeout - please try again with a smaller file';
+          }
+          setError(errorMessage);
         } finally {
           setUploadingMedia(null);
         }
@@ -625,7 +645,20 @@ export default function PresentVault() {
                       <AnimatedButton 
                         className="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-xs" 
                         size="sm" 
-                        onClick={() => setScheduleModal(slot._id)}
+                        onClick={() => {
+                          // Pre-populate form with existing data
+                          setScheduleEmail(slot.scheduledEmail || '');
+                          // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+                          if (slot.scheduledDate) {
+                            const date = new Date(slot.scheduledDate);
+                            const formattedDate = date.toISOString().slice(0, 16);
+                            setScheduleDate(formattedDate);
+                          } else {
+                            setScheduleDate('');
+                          }
+                          setError(''); // Clear any previous error messages
+                          setScheduleModal(slot._id);
+                        }}
                       >
                         Edit
                       </AnimatedButton>
@@ -658,6 +691,17 @@ export default function PresentVault() {
                         return;
                       }
                       
+                      // Pre-populate form with existing data if available
+                      setScheduleEmail(slot.scheduledEmail || '');
+                      // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+                      if (slot.scheduledDate) {
+                        const date = new Date(slot.scheduledDate);
+                        const formattedDate = date.toISOString().slice(0, 16);
+                        setScheduleDate(formattedDate);
+                      } else {
+                        setScheduleDate('');
+                      }
+                      setError(''); // Clear any previous error messages
                       setScheduleModal(slot._id);
                     }}>
                       <Mail size={14} className="mr-1" /> Schedule
@@ -711,6 +755,7 @@ export default function PresentVault() {
                     type="datetime-local" 
                     value={scheduleDate} 
                     onChange={e => setScheduleDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)} // Prevent selecting past dates
                   />
                 </div>
                 {error && !error.includes('valid email') && (

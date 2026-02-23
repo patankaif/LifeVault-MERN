@@ -8,12 +8,25 @@ import { join } from 'path';
 type StorageConfig = { baseUrl: string; apiKey: string };
 
 function getStorageConfig(): StorageConfig {
-  // Always use local storage for development
-  console.log('Using local file storage for uploads');
-  return { 
-    baseUrl: 'http://localhost:3001/uploads', 
-    apiKey: 'local-storage' 
-  };
+  // Use different URLs for development vs production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  if (isDevelopment) {
+    console.log('Using local file storage for uploads (development)');
+    return { 
+      baseUrl: 'http://localhost:3001/uploads', 
+      apiKey: 'local-storage' 
+    };
+  } else {
+    // For production (Render), use the deployed URL
+    const productionUrl = process.env.FRONTEND_URL || process.env.RENDER_EXTERNAL_URL || 'https://life-vault-frontend.onrender.com';
+    const baseUrl = productionUrl.replace(/\/$/, '') + '/uploads';
+    console.log(`Using production storage: ${baseUrl}`);
+    return { 
+      baseUrl: baseUrl, 
+      apiKey: 'production-storage' 
+    };
+  }
 }
 
 // Ensure uploads directory exists
@@ -72,6 +85,7 @@ export async function storagePut(
   contentType = "application/octet-stream"
 ): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
+  const config = getStorageConfig();
   
   // Use local file storage - save directly to uploads folder
   try {
@@ -94,7 +108,8 @@ export async function storagePut(
     const buffer = typeof data === 'string' ? Buffer.from(data, 'base64') : data;
     writeFileSync(filePath, buffer);
     
-    const url = `http://localhost:3001/uploads/${finalFileName}`;
+    // Use dynamic base URL for production compatibility
+    const url = `${config.baseUrl}/${finalFileName}`;
     console.log(`File saved locally: ${filePath}`);
     console.log(`Accessible at: ${url}`);
     
@@ -107,9 +122,10 @@ export async function storagePut(
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
   const key = normalizeKey(relKey);
+  const config = getStorageConfig();
   const fileName = key.split('/').pop() || key;
   return {
     key,
-    url: `http://localhost:3001/uploads/${fileName}`,
+    url: `${config.baseUrl}/${fileName}`,
   };
 }

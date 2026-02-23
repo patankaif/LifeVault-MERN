@@ -9,7 +9,7 @@ import {
   Package, Shield, ArrowLeft, Plus, Trash2, 
   Mail, User, ChevronRight, Loader2, AlertCircle,
   CheckCircle2, Info, Send, Archive, Zap, MessageSquare,
-  Image as ImageIcon, Video as VideoIcon, Calendar, Heart, ThumbsUp
+  Image as ImageIcon, Video as VideoIcon, Calendar, Heart, ThumbsUp, Eye, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -41,6 +41,7 @@ export default function PresentVault() {
   const [editingSlotName, setEditingSlotName] = useState('');
   const [showAddSlot, setShowAddSlot] = useState(false);
   const [activeTab, setActiveTab] = useState({});
+  const [viewSlotModal, setViewSlotModal] = useState(null);
 
   useEffect(() => {
     // Only check authentication after auth loading is complete
@@ -421,6 +422,9 @@ export default function PresentVault() {
                       </CardTitle>
                     )}
                     <div className="flex gap-2 absolute top-0 right-0">
+                      <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
+                        <Eye size={16} />
+                      </Button>
                       <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteSlot(slot._id)}>
                         <Trash2 size={16} />
                       </Button>
@@ -767,6 +771,97 @@ export default function PresentVault() {
                     setScheduleModal(null);
                     setError('');
                   }} className="flex-1">Cancel</AnimatedButton>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {viewSlotModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <CardHeader className="flex justify-between items-center">
+                <CardTitle className="text-2xl">{viewSlotModal.name}</CardTitle>
+                <Button variant="ghost" onClick={() => setViewSlotModal(null)}>
+                  <X size={20} />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Slot Info */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-2">Slot Information</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Total Items:</span> {viewSlotModal.media?.length || 0} media, {viewSlotModal.texts?.length || 0} texts
+                    </div>
+                    <div>
+                      <span className="font-medium">Created:</span> {new Date(viewSlotModal.createdAt).toLocaleDateString()}
+                    </div>
+                    {viewSlotModal.scheduledEmail && (
+                      <div className="col-span-2">
+                        <span className="font-medium">Scheduled for:</span> {viewSlotModal.scheduledEmail} on {new Date(viewSlotModal.scheduledDate).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Media Section */}
+                {viewSlotModal.media && viewSlotModal.media.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3">Media ({viewSlotModal.media.length})</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {viewSlotModal.media.map(m => (
+                        <div key={m._id} className="relative group">
+                          <div className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
+                            {m.type === 'image' ? (
+                              <img 
+                                src={m.url} 
+                                alt="Memory" 
+                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                                onClick={() => window.open(m.url, '_blank')}
+                              />
+                            ) : (
+                              <video 
+                                src={m.url} 
+                                className="w-full h-full object-cover"
+                                controls
+                                onClick={() => window.open(m.url, '_blank')}
+                              />
+                            )}
+                          </div>
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="secondary" onClick={() => window.open(m.url, '_blank')}>
+                              <Eye size={12} />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Texts Section */}
+                {viewSlotModal.texts && viewSlotModal.texts.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3">Texts ({viewSlotModal.texts.length})</h3>
+                    <div className="space-y-3">
+                      {viewSlotModal.texts.map(t => (
+                        <div key={t._id} className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                          <p className="text-gray-800 whitespace-pre-wrap">{t.content}</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {new Date(t.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Close Button */}
+                <div className="flex justify-end">
+                  <AnimatedButton onClick={() => setViewSlotModal(null)} className="px-8">
+                    Close
+                  </AnimatedButton>
                 </div>
               </CardContent>
             </Card>

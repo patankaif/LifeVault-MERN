@@ -643,7 +643,15 @@ export default function FutureVault() {
                       <AnimatedButton className="flex-1 bg-orange-500 hover:bg-orange-600 text-white cursor-default text-xs" size="sm">
                         <Mail size={14} className="mr-1 flex-shrink-0" />
                         <span className="truncate">
-                          Scheduled at {new Date(slot.scheduledDate).toLocaleDateString()} {new Date(slot.scheduledDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          Scheduled at {new Date(slot.scheduledDate).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })} {new Date(slot.scheduledDate).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: true 
+                          })}
                         </span>
                       </AnimatedButton>
                       <AnimatedButton 
@@ -799,7 +807,14 @@ export default function FutureVault() {
                     </div>
                     {viewSlotModal.scheduledEmail && (
                       <div className="col-span-2">
-                        <span className="font-medium">Scheduled for:</span> {viewSlotModal.scheduledEmail} on {new Date(viewSlotModal.scheduledDate).toLocaleString()}
+                        <span className="font-medium">Scheduled for:</span> {viewSlotModal.scheduledEmail} on {new Date(viewSlotModal.scheduledDate).toLocaleString('en-US', { 
+  month: 'short', 
+  day: 'numeric', 
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true 
+})}
                       </div>
                     )}
                   </div>

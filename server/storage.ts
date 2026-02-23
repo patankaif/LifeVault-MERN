@@ -18,9 +18,9 @@ function getStorageConfig(): StorageConfig {
       apiKey: 'local-storage' 
     };
   } else {
-    // For production (Render), use the deployed URL
-    const productionUrl = process.env.FRONTEND_URL || process.env.RENDER_EXTERNAL_URL || 'https://life-vault-frontend.onrender.com';
-    const baseUrl = productionUrl.replace(/\/$/, '') + '/uploads';
+    // For production (Render), use the API server URL for uploads
+    const apiUrl = process.env.RENDER_EXTERNAL_URL || 'https://life-vault-api.onrender.com';
+    const baseUrl = apiUrl.replace(/\/$/, '') + '/uploads';
     console.log(`Using production storage: ${baseUrl}`);
     return { 
       baseUrl: baseUrl, 

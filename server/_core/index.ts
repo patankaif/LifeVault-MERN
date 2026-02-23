@@ -58,6 +58,7 @@ async function startServer() {
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'https://life-vault-frontend.onrender.com',
+      'https://life-vault-frontend-p200.onrender.com', // Add actual production URL
       'http://localhost:3000',
       'http://localhost:3003',
       'http://localhost:5173'
@@ -115,8 +116,13 @@ async function startServer() {
 
   console.log(`[Server] FRONTEND_URL set to: ${process.env.FRONTEND_URL}`);
 
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  server.listen(port, '0.0.0.0', () => {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const serverUrl = isDevelopment 
+      ? `http://localhost:${port}` 
+      : `https://life-vault-api.onrender.com`;
+    
+    console.log(`Server running on ${serverUrl}/`);
     
     // Start all background jobs after server is ready
     if (startAllJobs) {

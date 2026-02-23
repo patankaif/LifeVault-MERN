@@ -123,6 +123,105 @@ router.post('/auth/reset-password', async (req, res) => {
   }
 });
 
+// Send OTP for account deletion
+router.post('/auth/send-delete-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    // Check if user exists
+    const db = await getDB();
+    const user = await db.collection('users').findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const result = await authUtils.sendOTPToEmail(email, 'delete-account');
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Verify OTP for account deletion
+router.post('/auth/verify-delete-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const result = await authUtils.verifyOTP(email, otp, 'delete-account');
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Delete account permanently
+router.delete('/auth/delete-account', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    // Verify OTP first
+    const otpResult = await authUtils.verifyOTP(email, otp, 'delete-account');
+    if (!otpResult.success) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    const db = await getDB();
+    
+    // Find user
+    const user = await db.collection('users').findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Delete user's slots and media
+    const slots = await db.collection('slots').find({ userId: user._id }).toArray();
+    
+    for (const slot of slots) {
+      // Delete media files from filesystem
+      if (slot.media && slot.media.length > 0) {
+        for (const media of slot.media) {
+          try {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            const filePath = path.join(process.cwd(), media.url.replace('/uploads/', 'uploads/'));
+            await fs.unlink(filePath);
+          } catch (err) {
+            console.error('Failed to delete media file:', media.url, err);
+          }
+        }
+      }
+    }
+
+    // Delete user's slots from database
+    await db.collection('slots').deleteMany({ userId: user._id });
+    
+    // Delete user's scheduling records
+    await db.collection('scheduling').deleteMany({ 
+      slotId: { $in: slots.map(s => s._id) } 
+    });
+    
+    // Delete user's inactivity records
+    await db.collection('inactivity').deleteMany({ userId: user._id });
+    
+    // Delete user account
+    await db.collection('users').deleteOne({ _id: user._id });
+
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Get current user
 router.get('/auth/me', verifyToken, async (req, res) => {
   try {

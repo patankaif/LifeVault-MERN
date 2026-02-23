@@ -11,20 +11,26 @@ export async function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export async function sendOTPToEmail(email) {
+export async function sendOTPToEmail(email, purpose = 'signup') {
   try {
     const db = await getDB();
     const otp = await generateOTP();
     
-    // Store OTP in database with expiry
+    // Store OTP in database with expiry and purpose
     await db.collection('otps').insertOne({
       email,
       otp,
+      purpose,
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + OTP_EXPIRY_TIME),
     });
-    // Send OTP via email
-    await sendOTP(email, otp);
+    
+    // Send OTP via email with appropriate message
+    if (purpose === 'delete-account') {
+      await sendOTP(email, otp, 'delete-account');
+    } else {
+      await sendOTP(email, otp);
+    }
     
     return { success: true, message: 'OTP sent to email' };
   } catch (error) {
@@ -33,13 +39,14 @@ export async function sendOTPToEmail(email) {
   }
 }
 
-export async function verifyOTP(email, otp) {
+export async function verifyOTP(email, otp, purpose = 'signup') {
   try {
     const db = await getDB();
     
     const otpRecord = await db.collection('otps').findOne({
       email,
       otp,
+      purpose,
       expiresAt: { $gt: new Date() },
     });
     if (!otpRecord) {

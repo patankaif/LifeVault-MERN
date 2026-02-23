@@ -64,17 +64,32 @@ export async function initEmailService() {
   }
 }
 
-export async function sendOTP(email, otp) {
+export async function sendOTP(email, otp, purpose = 'signup') {
   try {
     if (!transporter) {
       await initEmailService();
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: email,
-      subject: 'Life Vault - Your OTP Verification Code',
-      html: `
+    let subject, htmlContent;
+
+    if (purpose === 'delete-account') {
+      subject = 'Life Vault - Account Deletion OTP';
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">Life Vault - Account Deletion Request</h2>
+          <p>You requested to permanently delete your Life Vault account.</p>
+          <p style="color: #dc2626; font-weight: bold;">⚠️ This action is permanent and cannot be undone.</p>
+          <p>Your One-Time Password (OTP) for account deletion is:</p>
+          <div style="background-color: #fef2f2; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0; border: 2px solid #dc2626;">
+            <h1 style="color: #dc2626; letter-spacing: 5px; margin: 0;">${otp}</h1>
+          </div>
+          <p style="color: #666;">This OTP is valid for 10 minutes.</p>
+          <p style="color: #999; font-size: 12px;">If you didn't request this deletion, please secure your account immediately.</p>
+        </div>
+      `;
+    } else {
+      subject = 'Life Vault - Your OTP Verification Code';
+      htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Life Vault OTP Verification</h2>
           <p>Your One-Time Password (OTP) for Life Vault is:</p>
@@ -84,11 +99,18 @@ export async function sendOTP(email, otp) {
           <p style="color: #666;">This OTP is valid for 10 minutes.</p>
           <p style="color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
         </div>
-      `,
+      `;
+    }
+
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: email,
+      subject,
+      html: htmlContent,
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('[Email Service] OTP sent to', email);
+    console.log(`[Email Service] ${purpose} OTP sent to`, email);
     return result;
   } catch (error) {
     console.error('[Email Service] Failed to send OTP:', error);

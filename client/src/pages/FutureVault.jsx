@@ -705,10 +705,16 @@ export default function FutureVault() {
                       
                       // Pre-populate form with existing data if available
                       setScheduleEmail(slot.scheduledEmail || '');
-                      // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+                      // Format date for datetime-local input (YYYY-MM-DDTHH:MM) - fix timezone issue
                       if (slot.scheduledDate) {
                         const date = new Date(slot.scheduledDate);
-                        const formattedDate = date.toISOString().slice(0, 16);
+                        // Get local date components to avoid UTC conversion
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
                         setScheduleDate(formattedDate);
                       } else {
                         setScheduleDate('');

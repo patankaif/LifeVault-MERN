@@ -9,7 +9,8 @@ import {
   User, Mail, Shield, Bell, Clock, LogOut, 
   ArrowLeft, CheckCircle2, AlertCircle, Loader2,
   Settings, Lock, Key, Globe, Heart, Archive,
-  FileText, Image as ImageIcon, Video, Send, Target, Star
+  FileText, Image as ImageIcon, Video, Send, Target, Star,
+  Trash2, AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -21,6 +22,14 @@ export default function Profile() {
   const [inactivityStatus, setInactivityStatus] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  
+  // Delete account states
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState('');
+  const [deleteOTP, setDeleteOTP] = useState('');
+  const [deleteStep, setDeleteStep] = useState(1); // 1: email, 2: otp, 3: confirm
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   
   const [futureSlotsCount, setFutureSlotsCount] = useState(0);
   const [presentSlotsCount, setPresentSlotsCount] = useState(0);
@@ -153,6 +162,99 @@ export default function Profile() {
     } finally {
       setConfirming(false);
     }
+  };
+
+  // Delete account functions
+  const handleSendDeleteOTP = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    
+    try {
+      const response = await authFetch('/api/auth/send-delete-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email: deleteEmail })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setDeleteStep(2);
+        setMessage({ type: 'success', text: 'OTP sent to your email. Please check your inbox.' });
+      } else {
+        setDeleteError(data.message || 'Failed to send OTP');
+      }
+    } catch (err) {
+      setDeleteError('Failed to send OTP. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleVerifyDeleteOTP = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    
+    try {
+      const response = await authFetch('/api/auth/verify-delete-otp', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          email: deleteEmail, 
+          otp: deleteOTP 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setDeleteStep(3);
+      } else {
+        setDeleteError(data.message || 'Invalid OTP');
+      }
+    } catch (err) {
+      setDeleteError('Failed to verify OTP. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    
+    try {
+      const response = await authFetch('/api/auth/delete-account', {
+        method: 'DELETE',
+        body: JSON.stringify({ 
+          email: deleteEmail, 
+          otp: deleteOTP 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Account deleted successfully.' });
+        setShowDeleteModal(false);
+        setTimeout(() => {
+          logout();
+          navigate('/');
+        }, 2000);
+      } else {
+        setDeleteError(data.message || 'Failed to delete account');
+      }
+    } catch (err) {
+      setDeleteError('Failed to delete account. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const resetDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteStep(1);
+    setDeleteEmail('');
+    setDeleteOTP('');
+    setDeleteError('');
   };
 
   if (loading || authLoading) return (
@@ -344,9 +446,183 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Dangerous Actions */}
+            <Card className="border-none shadow-sm bg-white border-red-100">
+              <CardHeader className="border-b border-slate-50">
+                <CardTitle className="text-lg text-red-600">Dangerous Actions</CardTitle>
+                <CardDescription>
+                  These actions are permanent and cannot be undone.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="text-red-600 flex-shrink-0 mt-1" size={20} />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-red-800 mb-1">Delete Account Permanently</h4>
+                        <p className="text-sm text-red-700 mb-3">
+                          This will permanently delete your account, all memory slots, media files, and scheduled deliveries. This action cannot be undone.
+                        </p>
+                        <Button 
+                          onClick={() => setShowDeleteModal(true)}
+                          variant="destructive"
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                        >
+                          <Trash2 size={16} className="mr-2" />
+                          Delete My Account
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </motion.div>
       </main>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-xl text-red-600">Delete Account</CardTitle>
+              <CardDescription>
+                This action is permanent and cannot be undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Step 1: Email */}
+              {deleteStep === 1 && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Enter your email address
+                  </label>
+                  <Input 
+                    type="email" 
+                    placeholder="your@email.com" 
+                    value={deleteEmail}
+                    onChange={e => setDeleteEmail(e.target.value)}
+                    className={deleteError ? 'border-red-500' : ''}
+                  />
+                  {deleteError && (
+                    <p className="text-red-500 text-xs mt-1">{deleteError}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: OTP */}
+              {deleteStep === 2 && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Enter the OTP sent to your email
+                  </label>
+                  <Input 
+                    type="text" 
+                    placeholder="123456" 
+                    value={deleteOTP}
+                    onChange={e => setDeleteOTP(e.target.value)}
+                    className={deleteError ? 'border-red-500' : ''}
+                    maxLength={6}
+                  />
+                  {deleteError && (
+                    <p className="text-red-500 text-xs mt-1">{deleteError}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Check your email for the 6-digit OTP code.
+                  </p>
+                </div>
+              )}
+
+              {/* Step 3: Final Confirmation */}
+              {deleteStep === 3 && (
+                <div>
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+                    <h4 className="font-semibold text-red-800 mb-2">Final Warning</h4>
+                    <p className="text-sm text-red-700 mb-2">
+                      You are about to permanently delete:
+                    </p>
+                    <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                      <li>Your account and profile</li>
+                      <li>All memory slots and their content</li>
+                      <li>All uploaded media files</li>
+                      <li>All scheduled deliveries</li>
+                      <li>All account data and settings</li>
+                    </ul>
+                    <p className="text-sm text-red-800 font-semibold mt-3">
+                      This action cannot be undone!
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                {deleteStep === 1 && (
+                  <>
+                    <Button 
+                      onClick={handleSendDeleteOTP}
+                      disabled={!deleteEmail || deleteLoading}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {deleteLoading ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                      Send OTP
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={resetDeleteModal}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
+
+                {deleteStep === 2 && (
+                  <>
+                    <Button 
+                      onClick={handleVerifyDeleteOTP}
+                      disabled={!deleteOTP || deleteLoading}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {deleteLoading ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                      Verify OTP
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={resetDeleteModal}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
+
+                {deleteStep === 3 && (
+                  <>
+                    <Button 
+                      onClick={handleDeleteAccount}
+                      disabled={deleteLoading}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {deleteLoading ? <Loader2 className="animate-spin mr-2" size={16} /> : null}
+                      Delete My Account
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={resetDeleteModal}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

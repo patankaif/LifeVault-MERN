@@ -1,9 +1,35 @@
 import nodemailer from 'nodemailer';
 
 let transporter = null;
+let fallbackTransporter = null;
+
+// Initialize fallback transporter (using Ethereal or other service)
+async function initFallbackTransporter() {
+  try {
+    // Using Ethereal for testing (replace with production service)
+    fallbackTransporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      auth: {
+        user: 'ethereal.user@ethereal.email',
+        pass: 'ethereal.pass'
+      }
+    });
+    console.log('[Email Service] Fallback transporter initialized');
+  } catch (error) {
+    console.warn('[Email Service] Fallback transporter failed:', error.message);
+  }
+}
 
 export async function initEmailService() {
   try {
+    console.log('[Email Service] Initializing with config:', {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER,
+      hasPassword: !!process.env.SMTP_PASSWORD
+    });
+
     const smtpPort = parseInt(process.env.SMTP_PORT || '587');
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -19,10 +45,21 @@ export async function initEmailService() {
     });
 
     await transporter.verify();
-    console.log('[Email Service] SMTP connection verified');
+    console.log('[Email Service] SMTP connection verified successfully');
+    
+    // Initialize fallback
+    await initFallbackTransporter();
+    
     return true;
   } catch (error) {
-    console.error('[Email Service] SMTP connection failed:', error);
+    console.error('[Email Service] SMTP connection failed:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // Initialize fallback as backup
+    await initFallbackTransporter();
     throw error;
   }
 }

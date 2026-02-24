@@ -643,15 +643,20 @@ export default function FutureVault() {
                       <AnimatedButton className="flex-1 bg-orange-500 hover:bg-orange-600 text-white cursor-default text-xs" size="sm">
                         <Mail size={14} className="mr-1 flex-shrink-0" />
                         <span className="truncate">
-                          Scheduled at {new Date(slot.scheduledDate).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric', 
-                            year: 'numeric' 
-                          })} {new Date(slot.scheduledDate).toLocaleTimeString('en-US', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: true 
-                          })}
+                          Scheduled at {(() => {
+                            const date = new Date(slot.scheduledDate);
+                            // Add timezone offset to display correct local time
+                            const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                            return localDate.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            }) + ' ' + localDate.toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true 
+                            });
+                          })()}
                         </span>
                       </AnimatedButton>
                       <AnimatedButton 
@@ -813,14 +818,19 @@ export default function FutureVault() {
                     </div>
                     {viewSlotModal.scheduledEmail && (
                       <div className="col-span-2">
-                        <span className="font-medium">Scheduled for:</span> {viewSlotModal.scheduledEmail} on {new Date(viewSlotModal.scheduledDate).toLocaleString('en-US', { 
-  month: 'short', 
-  day: 'numeric', 
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: true 
-})}
+                        <span className="font-medium">Scheduled for:</span> {viewSlotModal.scheduledEmail} on {(() => {
+                          const date = new Date(viewSlotModal.scheduledDate);
+                          // Add timezone offset to display correct local time
+                          const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                          return localDate.toLocaleString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          });
+                        })()}
                       </div>
                     )}
                   </div>

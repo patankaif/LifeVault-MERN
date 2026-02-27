@@ -223,16 +223,16 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
         // Check if it's a datetime-local string (YYYY-MM-DDTHH:MM) without timezone
         if (typeof scheduledDate === 'string' && scheduledDate.includes('T') && !scheduledDate.includes('Z') && !scheduledDate.includes('+')) {
           // This is a local datetime from frontend, treat it as local time
+          // Create a date object from the local datetime string
           const localDate = new Date(scheduledDate + ':00'); // Add seconds
-          // Convert to UTC by using the local time components
-          parsedDate = new Date(
-            localDate.getFullYear(),
-            localDate.getMonth(),
-            localDate.getDate(),
-            localDate.getHours(),
-            localDate.getMinutes(),
-            localDate.getSeconds()
-          );
+          
+          // Get the timezone offset in minutes and convert to milliseconds
+          const timezoneOffset = localDate.getTimezoneOffset() * 60000;
+          
+          // Convert local time to UTC by subtracting the timezone offset
+          parsedDate = new Date(localDate.getTime() - timezoneOffset);
+          
+          console.log(`[Vault] Timezone conversion: Local ${scheduledDate} -> UTC ${parsedDate.toISOString()}, Offset: ${timezoneOffset/60000} minutes`);
         } else {
           // Parse the ISO string to maintain the exact time
           parsedDate = new Date(scheduledDate);

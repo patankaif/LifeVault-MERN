@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Hook to get URL query parameters
+const useQuery = () => {
+  const [location] = useLocation();
+  const query = new URLSearchParams(location.split('?')[1] || '');
+  return query;
+};
+
 // Animated Button Component
 const AnimatedButton = ({ children, className, ...props }) => (
   <Button 
@@ -26,6 +33,7 @@ const AnimatedButton = ({ children, className, ...props }) => (
 export default function FutureVault() {
   const [, navigate] = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const query = useQuery();
   const [slots, setSlots] = useState([]);
   const [newSlotName, setNewSlotName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,6 +42,8 @@ export default function FutureVault() {
   const [scheduleModal, setScheduleModal] = useState(null);
   const [scheduleEmail, setScheduleEmail] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
+  const [focusedSlotId, setFocusedSlotId] = useState(null); // For showing only specific slot
+  const [readOnlyMode, setReadOnlyMode] = useState(false); // For read-only shared slot view
   const [editingText, setEditingText] = useState(null);
   const [newText, setNewText] = useState({});
   const [uploadingMedia, setUploadingMedia] = useState(null);
@@ -53,6 +63,28 @@ export default function FutureVault() {
       fetchSlots();
     }
   }, [isAuthenticated, navigate, authLoading]);
+
+  // Handle schedule query parameter
+  useEffect(() => {
+    const scheduleSlotId = query.get('schedule');
+    if (scheduleSlotId && slots.length > 0) {
+      const slotToSchedule = slots.find(slot => slot._id === scheduleSlotId);
+      if (slotToSchedule) {
+        // Set focused slot to show only this slot
+        setFocusedSlotId(scheduleSlotId);
+        // Set read-only mode for shared slot view
+        setReadOnlyMode(true);
+        // Expand this specific slot
+        setExpandedSlot(scheduleSlotId);
+        // Open schedule modal
+        setScheduleModal(scheduleSlotId);
+        setScheduleEmail(slotToSchedule.scheduledEmail || '');
+        setScheduleDate(slotToSchedule.scheduledDate ? new Date(slotToSchedule.scheduledDate).toISOString().split('T')[0] : '');
+        // Clear the query parameter to prevent reopening on refresh
+        window.history.replaceState({}, '', '/future-vault');
+      }
+    }
+  }, [query, slots]);
 
   const checkDeliveryStatus = async (slots) => {
     try {
@@ -386,8 +418,16 @@ export default function FutureVault() {
           </div>
         )}
 
+        {focusedSlotId && (
+          <div className="mb-6 flex items-center justify-center">
+            <div className="text-sm text-gray-600 text-center">
+              Viewing shared slot: <span className="font-semibold">{slots.find(s => s._id === focusedSlotId)?.name}</span>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {slots.map(slot => {
+          {slots.filter(slot => !focusedSlotId || slot._id === focusedSlotId).map(slot => {
             const texts = slot.texts || [];
             const media = slot.media || [];
             const totalItems = texts.length + media.length;
@@ -457,24 +497,28 @@ export default function FutureVault() {
 
                   {/* Add Content Buttons Row */}
                   <div className="grid grid-cols-3 gap-4 mb-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`text-input-${slot._id}`)?.focus(), 100);
-                    }} className="text-xs h-8">
-                      <MessageSquare size={12} className="mr-1" /> Text
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`image-input-${slot._id}`)?.click(), 100);
-                    }} className="text-xs h-8">
-                      <ImageIcon size={12} className="mr-1" /> Image
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`video-input-${slot._id}`)?.click(), 100);
-                    }} className="text-xs h-8">
-                      <VideoIcon size={12} className="mr-1" /> Video
-                    </Button>
+                    {!readOnlyMode && (
+                      <>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                        setTimeout(() => document.getElementById(`text-input-${slot._id}`)?.focus(), 100);
+                      }} className="text-xs h-8">
+                        <MessageSquare size={12} className="mr-1" /> Text
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                        setTimeout(() => document.getElementById(`image-input-${slot._id}`)?.click(), 100);
+                      }} className="text-xs h-8">
+                        <ImageIcon size={12} className="mr-1" /> Image
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                        setTimeout(() => document.getElementById(`video-input-${slot._id}`)?.click(), 100);
+                      }} className="text-xs h-8">
+                        <VideoIcon size={12} className="mr-1" /> Video
+                      </Button>
+                      </>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col overflow-hidden p-4">

@@ -478,11 +478,14 @@ router.get('/shared-vault/:accessToken', async (req, res) => {
   try {
     const { accessToken } = req.params;
     const result = await vaultUtils.getSharedSlot(accessToken);
+    
     if (!result) {
       return res.status(404).json({ success: false, message: 'Shared slot not found or link expired' });
     }
+    
     res.json({ success: true, ...result });
   } catch (error) {
+    console.error('[API] Shared vault error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

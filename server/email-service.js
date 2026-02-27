@@ -138,6 +138,9 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
       accessLink
     });
 
+    // Convert shared-vault link to schedule-slot link
+    const scheduleLink = accessLink.replace('/shared-vault/', '/schedule-slot/');
+
     const mailOptions = {
       from: process.env.SMTP_USER,
       to: recipientEmail,
@@ -147,9 +150,9 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
           <h2 style="color: #333;">Hello!</h2>
           <p>Someone has shared a special memory slot titled "<strong>${slotName}</strong>" with you on Life Vault.</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${accessLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Memory Slot</a>
+            <a href="${scheduleLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Memory Slot</a>
           </div>
-          <p style="color: #007bff; word-break: break-all;">${accessLink}</p>
+          <p style="color: #007bff; word-break: break-all;">${scheduleLink}</p>
         </div>
       `,
     };

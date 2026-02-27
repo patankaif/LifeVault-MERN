@@ -182,7 +182,7 @@ export default defineConfig({
     proxy: {
       "/api": {
         target: process.env.NODE_ENV === "development" 
-          ? "http://localhost:3001"
+          ? "http://127.0.0.1:3001"
           : "https://life-vault-api.onrender.com",
         changeOrigin: true,
         secure: false, // Needed for some production environments

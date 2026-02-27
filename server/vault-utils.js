@@ -440,6 +440,15 @@ export async function getSharedSlot(accessToken) {
     }
 
     const slot = await db.collection('slots').findOne({ _id: scheduling.slotId });
+    
+    // Get vault information to include vault type
+    const vault = await db.collection('vaults').findOne({ _id: slot.vaultId });
+    
+    // Add vault type to slot data
+    if (vault) {
+      slot.vaultType = vault.type;
+    }
+    
     return { slot, scheduling };
   } catch (error) {
     console.error('[Vault] Failed to get shared slot:', error);

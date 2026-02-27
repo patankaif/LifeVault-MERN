@@ -13,6 +13,18 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Hook to get URL query parameters
+const useQuery = () => {
+  const [location] = useLocation();
+  // Use window.location.search to get query parameters more reliably
+  const searchParams = typeof window !== 'undefined' ? window.location.search : '';
+  const query = new URLSearchParams(searchParams);
+  console.log('[PresentVault] useQuery location:', location);
+  console.log('[PresentVault] useQuery searchParams:', searchParams);
+  console.log('[PresentVault] useQuery query params:', Object.fromEntries(query.entries()));
+  return query;
+};
+
 // Animated Button Component
 const AnimatedButton = ({ children, className, ...props }) => (
   <Button 
@@ -26,6 +38,7 @@ const AnimatedButton = ({ children, className, ...props }) => (
 export default function PresentVault() {
   const [, navigate] = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const query = useQuery();
   const [slots, setSlots] = useState([]);
   const [newSlotName, setNewSlotName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,6 +47,8 @@ export default function PresentVault() {
   const [scheduleModal, setScheduleModal] = useState(null);
   const [scheduleEmail, setScheduleEmail] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
+  const [focusedSlotId, setFocusedSlotId] = useState(null); // For showing only specific slot
+  const [readOnlyMode, setReadOnlyMode] = useState(false); // For read-only shared slot view
   const [editingText, setEditingText] = useState(null);
   const [newText, setNewText] = useState({});
   const [uploadingMedia, setUploadingMedia] = useState(null);
@@ -53,6 +68,31 @@ export default function PresentVault() {
       fetchSlots();
     }
   }, [isAuthenticated, navigate, authLoading]);
+
+  // Handle schedule query parameter
+  useEffect(() => {
+    const scheduleSlotId = query.get('schedule');
+    console.log('[PresentVault] Schedule parameter check:', { scheduleSlotId, slotsLength: slots.length });
+    if (scheduleSlotId && slots.length > 0) {
+      const slotToSchedule = slots.find(slot => slot._id === scheduleSlotId);
+      console.log('[PresentVault] Found slot to schedule:', slotToSchedule);
+      if (slotToSchedule) {
+        console.log('[PresentVault] Setting focused slot and opening schedule modal for:', slotToSchedule._id);
+        // Set focused slot to show only this slot
+        setFocusedSlotId(scheduleSlotId);
+        // Set read-only mode for shared slot view
+        setReadOnlyMode(true);
+        // Expand this specific slot
+        setExpandedSlot(scheduleSlotId);
+        // Open schedule modal
+        setScheduleModal(scheduleSlotId);
+        setScheduleEmail(slotToSchedule.scheduledEmail || '');
+        setScheduleDate(slotToSchedule.scheduledDate ? new Date(slotToSchedule.scheduledDate).toISOString().split('T')[0] : '');
+        // Clear the query parameter to prevent reopening on refresh
+        window.history.replaceState({}, '', '/present-vault');
+      }
+    }
+  }, [query, slots]);
 
   const checkDeliveryStatus = async (slots) => {
     try {
@@ -369,6 +409,7 @@ export default function PresentVault() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {!readOnlyMode && (
         <Card className="mb-8">
           <CardHeader><CardTitle>Create New Slot</CardTitle></CardHeader>
           <CardContent>
@@ -378,6 +419,7 @@ export default function PresentVault() {
             </div>
           </CardContent>
         </Card>
+      )}
 
         {error && (
           <div className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium">
@@ -386,8 +428,16 @@ export default function PresentVault() {
           </div>
         )}
 
+        {focusedSlotId && (
+          <div className="mb-6 flex items-center justify-center">
+            <div className="text-sm text-gray-600 text-center">
+              Viewing shared slot: <span className="font-semibold">{slots.find(s => s._id === focusedSlotId)?.name}</span>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {slots.map(slot => {
+          {slots.filter(slot => !focusedSlotId || slot._id === focusedSlotId).map(slot => {
             const texts = slot.texts || [];
             const media = slot.media || [];
             const totalItems = texts.length + media.length;
@@ -412,22 +462,26 @@ export default function PresentVault() {
                       />
                     ) : (
                       <CardTitle 
-                        className="text-xl font-bold text-center mb-2 cursor-pointer hover:text-blue-600" 
+                        className={`text-xl font-bold text-center mb-2 ${!readOnlyMode ? 'cursor-pointer hover:text-blue-600' : ''}`} 
                         onClick={() => {
-                          setEditingSlot(slot._id);
-                          setEditingSlotName(slot.name);
+                          if (!readOnlyMode) {
+                            setEditingSlot(slot._id);
+                            setEditingSlotName(slot.name);
+                          }
                         }}
                       >
                         {slot.name}
                       </CardTitle>
                     )}
-                    <div className="flex gap-2 absolute top-0 right-0">
+                    <div className="flex justify-center gap-2">
                       <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
                         <Eye size={16} />
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteSlot(slot._id)}>
-                        <Trash2 size={16} />
-                      </Button>
+                      {!readOnlyMode && (
+                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteSlot(slot._id)}>
+                          <Trash2 size={16} />
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <CardDescription className="text-sm mb-3">{media.length} media, {texts.length} texts</CardDescription>
@@ -457,12 +511,16 @@ export default function PresentVault() {
 
                   {/* Add Content Buttons Row */}
                   <div className="grid grid-cols-3 gap-4 mb-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`text-input-${slot._id}`)?.focus(), 100);
-                    }} className="text-xs h-8">
-                      <MessageSquare size={12} className="mr-1" /> Text
-                    </Button>
+                    {!readOnlyMode && (
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                        setTimeout(() => document.getElementById(`text-input-${slot._id}`)?.focus(), 100);
+                      }} className="text-xs h-8">
+                        <MessageSquare size={12} className="mr-1" /> Text
+                      </Button>
+                    )}
+                    {!readOnlyMode && (
+                    <>
                     <Button variant="outline" size="sm" onClick={() => {
                       setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
                       setTimeout(() => document.getElementById(`image-input-${slot._id}`)?.click(), 100);
@@ -475,6 +533,8 @@ export default function PresentVault() {
                     }} className="text-xs h-8">
                       <VideoIcon size={12} className="mr-1" /> Video
                     </Button>
+                    </>
+                  )}
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col overflow-hidden p-4">
@@ -511,6 +571,7 @@ export default function PresentVault() {
                                   </div>
                                   <span className="text-xs text-gray-500 font-medium">Text</span>
                                 </div>
+                                {!readOnlyMode && (
                                 <button 
                                   onClick={() => deleteText(slot._id, t._id)} 
                                   className="opacity-0 group-hover:opacity-100 transition-all duration-200"
@@ -519,6 +580,7 @@ export default function PresentVault() {
                                     <Trash2 size={8} />
                                   </div>
                                 </button>
+                              )}
                               </div>
                               <p className="text-xs text-gray-700 leading-relaxed line-clamp-3 break-all flex-1">{t.content}</p>
                             </div>
@@ -564,12 +626,14 @@ export default function PresentVault() {
                                   </div>
                                   )}
                                 </div>
+                                {!readOnlyMode && (
                                 <button 
                                   onClick={() => deleteMedia(slot._id, m._id)} 
                                   className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:scale-110 z-10"
                                 >
                                   <Trash2 size={12} />
                                 </button>
+                              )}
                               </div>
                             );
                           })}
@@ -599,7 +663,7 @@ export default function PresentVault() {
                   </div>
 
                   {/* Add Content Section */}
-                  {expandedSlot === slot._id && (
+                  {expandedSlot === slot._id && !readOnlyMode && (
                     <div className="space-y-3 border-t pt-3 mt-3 flex-shrink-0">
                       <div className="space-y-2">
                         <div className="flex gap-2">
@@ -623,20 +687,22 @@ export default function PresentVault() {
                       <AnimatedButton className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-default" size="sm">
                         <Heart size={14} className="mr-1" /> Slot Delivered
                       </AnimatedButton>
-                      <AnimatedButton 
-                        className="flex-1 bg-teal-600 hover:bg-teal-700 text-white" 
-                        size="sm" 
-                        onClick={() => {
-                          // Reset slot for new schedule
-                          setSlots(slots.map(s => 
-                            s._id === slot._id 
-                              ? { ...s, scheduledDate: null, scheduledEmail: null, delivered: false }
-                              : s
-                          ));
-                        }}
-                      >
-                        <Mail size={14} className="mr-1" /> New Schedule
-                      </AnimatedButton>
+                      {!readOnlyMode && (
+                        <AnimatedButton 
+                          className="flex-1 bg-teal-600 hover:bg-teal-700 text-white" 
+                          size="sm" 
+                          onClick={() => {
+                            // Reset slot for new schedule
+                            setSlots(slots.map(s => 
+                              s._id === slot._id 
+                                ? { ...s, scheduledDate: null, scheduledEmail: null, delivered: false }
+                                : s
+                            ));
+                          }}
+                        >
+                          <Mail size={14} className="mr-1" /> New Schedule
+                        </AnimatedButton>
+                      )}
                     </div>
                   ) : slot.scheduledDate ? (
                     <div className="flex gap-2 w-full mt-3">
@@ -659,42 +725,46 @@ export default function PresentVault() {
                           })()}
                         </span>
                       </AnimatedButton>
-                      <AnimatedButton 
-                        className="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-xs" 
-                        size="sm" 
-                        onClick={() => {
-                          // Pre-populate form with existing data
-                          setScheduleEmail(slot.scheduledEmail || '');
-                          // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
-                          if (slot.scheduledDate) {
-                            const date = new Date(slot.scheduledDate);
-                            const formattedDate = date.toISOString().slice(0, 16);
-                            setScheduleDate(formattedDate);
-                          } else {
-                            setScheduleDate('');
-                          }
-                          setError(''); // Clear any previous error messages
-                          setScheduleModal(slot._id);
-                        }}
-                      >
-                        Edit
-                      </AnimatedButton>
-                      <AnimatedButton 
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs" 
-                        size="sm" 
-                        onClick={() => {
-                          if (window.confirm('Are you sure to delete this delivery time?')) {
-                            // Delete delivery schedule
-                            setSlots(slots.map(s => 
-                              s._id === slot._id 
-                                ? { ...s, scheduledDate: null, scheduledEmail: null, delivered: false }
-                                : s
-                            ));
-                          }
-                        }}
-                      >
-                        <Trash2 size={14} className="mr-1" /> Delete
-                      </AnimatedButton>
+                      {!readOnlyMode && (
+                        <>
+                        <AnimatedButton 
+                          className="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-xs" 
+                          size="sm" 
+                          onClick={() => {
+                            // Pre-populate form with existing data
+                            setScheduleEmail(slot.scheduledEmail || '');
+                            // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+                            if (slot.scheduledDate) {
+                              const date = new Date(slot.scheduledDate);
+                              const formattedDate = date.toISOString().slice(0, 16);
+                              setScheduleDate(formattedDate);
+                            } else {
+                              setScheduleDate('');
+                            }
+                            setError(''); // Clear any previous error messages
+                            setScheduleModal(slot._id);
+                          }}
+                        >
+                          Edit
+                        </AnimatedButton>
+                        <AnimatedButton 
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs" 
+                          size="sm" 
+                          onClick={() => {
+                            if (window.confirm('Are you sure to delete this delivery time?')) {
+                              // Delete delivery schedule
+                              setSlots(slots.map(s => 
+                                s._id === slot._id 
+                                  ? { ...s, scheduledDate: null, scheduledEmail: null, delivered: false }
+                                  : s
+                              ));
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} className="mr-1" /> Delete
+                        </AnimatedButton>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <AnimatedButton className="w-full mt-3 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white" size="sm" onClick={() => {

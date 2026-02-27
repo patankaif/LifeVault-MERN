@@ -22,9 +22,9 @@ import SlotDetail from '@/pages/SlotDetail';
 import NotFound from '@/pages/NotFound';
 
 function Router() {
+  console.log('[App Router] Current path:', window.location.pathname);
   return (
     <Switch>
-      <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/forgot-password" component={ForgotPassword} />
@@ -33,10 +33,12 @@ function Router() {
       <Route path="/future-vault" component={FutureVault} />
       <Route path="/death-vault" component={DeathVault} />
       <Route path="/slots/:id" component={SlotDetail} />
+      <Route path="/schedule-slot/:token" component={SharedVault} />
       <Route path="/shared-vault/:token" component={SharedVault} />
       <Route path="/confirm-alive/:token" component={ConfirmAlive} />
       <Route path="/profile" component={Profile} />
       <Route path="/404" component={NotFound} />
+      <Route path="/" component={Home} />
       <Route component={NotFound} />
     </Switch>
   );

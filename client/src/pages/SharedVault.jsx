@@ -1,30 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { useRoute } from 'wouter';
+import { useRoute, useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SharedVault() {
-  const [match, params] = useRoute('/shared-vault/:token');
+  const [sharedMatch, sharedParams] = useRoute('/shared-vault/:token');
+  const [scheduleMatch, scheduleParams] = useRoute('/schedule-slot/:token');
+  const [, navigate] = useLocation();
   const [slot, setSlot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (params?.token) {
-      fetchSharedSlot(params.token);
-    }
-  }, [params?.token]);
+  const isScheduleRoute = scheduleMatch;
+  const params = isScheduleRoute ? scheduleParams : sharedParams;
 
-  const fetchSharedSlot = async (token) => {
+  console.log('[SharedVault] Route detection:', {
+    sharedMatch,
+    scheduleMatch,
+    isScheduleRoute,
+    params,
+    currentPath: window.location.pathname
+  });
+
+  useEffect(() => {
+    console.log('[SharedVault] useEffect triggered with params:', params);
+    if (params?.token) {
+      console.log('[SharedVault] Fetching shared slot with token:', params.token);
+      fetchSharedSlot(params.token, isScheduleRoute);
+    }
+  }, [params?.token, isScheduleRoute]);
+
+  const fetchSharedSlot = async (token, scheduleRoute) => {
+    console.log('[SharedVault] fetchSharedSlot called with:', { token, scheduleRoute });
     try {
       const response = await fetch(`/api/shared-vault/${token}`);
       const data = await response.json();
+      console.log('[SharedVault] API response:', data);
       if (data.success) {
         setSlot(data.slot);
+        
+        // If this is a schedule route, redirect to the appropriate vault with schedule modal
+        if (scheduleRoute && data.slot) {
+          console.log('[SharedVault] Schedule route detected, redirecting to vault');
+          // We need to determine the vault type - let's get it from the slot
+          const vaultType = data.slot.vaultType || 'present'; // default to present
+          const vaultRoute = `/${vaultType}-vault`;
+          const redirectUrl = `${vaultRoute}?schedule=${data.slot._id}`;
+          console.log('[SharedVault] Redirecting to:', redirectUrl);
+          navigate(redirectUrl);
+          return;
+        }
       } else {
         setError(data.message || 'Shared slot not found or link expired');
       }
     } catch (err) {
+      console.error('[SharedVault] Error fetching shared slot:', err);
       setError(err.message);
     } finally {
       setLoading(false);

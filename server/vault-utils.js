@@ -213,15 +213,30 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
   try {
     const db = await getDB();
 
-    // Parse the date properly to avoid timezone issues
+    // Parse the date properly to handle timezone issues
     let parsedDate;
     try {
       // If scheduledDate is already a Date object, use it directly
       if (scheduledDate instanceof Date) {
         parsedDate = scheduledDate;
       } else {
-        // Parse the ISO string to maintain the exact time
-        parsedDate = new Date(scheduledDate);
+        // Check if it's a datetime-local string (YYYY-MM-DDTHH:MM) without timezone
+        if (typeof scheduledDate === 'string' && scheduledDate.includes('T') && !scheduledDate.includes('Z') && !scheduledDate.includes('+')) {
+          // This is a local datetime from frontend, treat it as local time
+          const localDate = new Date(scheduledDate + ':00'); // Add seconds
+          // Convert to UTC by using the local time components
+          parsedDate = new Date(
+            localDate.getFullYear(),
+            localDate.getMonth(),
+            localDate.getDate(),
+            localDate.getHours(),
+            localDate.getMinutes(),
+            localDate.getSeconds()
+          );
+        } else {
+          // Parse the ISO string to maintain the exact time
+          parsedDate = new Date(scheduledDate);
+        }
       }
       
       // Validate the parsed date

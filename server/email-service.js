@@ -31,13 +31,9 @@ export async function initEmailService() {
     });
 
     const smtpPort = parseInt(process.env.SMTP_PORT || '587');
-    // Use IPv4 address directly to avoid IPv6 connection issues
-    const smtpHost = process.env.SMTP_HOST === 'smtp.gmail.com' 
-      ? '64.233.184.108' // Gmail's IPv4 address
-      : process.env.SMTP_HOST;
     
     transporter = nodemailer.createTransport({
-      host: smtpHost,
+      host: process.env.SMTP_HOST,
       port: smtpPort,
       secure: smtpPort === 465,
       auth: {
@@ -47,10 +43,16 @@ export async function initEmailService() {
       tls: {
         rejectUnauthorized: false
       },
-      // Increase timeouts for better reliability
-      connectionTimeout: 60000,
-      greetingTimeout: 30000,
-      socketTimeout: 60000
+      // Better connection settings
+      connectionTimeout: 30000,
+      greetingTimeout: 10000,
+      socketTimeout: 30000,
+      // Add pool configuration for better reliability
+      pool: true,
+      maxConnections: 1,
+      maxMessages: 100,
+      rateDelta: 1000,
+      rateLimit: 5
     });
 
     await transporter.verify();
@@ -127,6 +129,34 @@ export async function sendOTP(email, otp, purpose = 'signup') {
   }
 }
 
+export async function testEmailService() {
+  try {
+    if (!transporter) {
+      await initEmailService();
+    }
+    
+    const testMailOptions = {
+      from: process.env.SMTP_USER,
+      to: process.env.SMTP_USER, // Send to self for testing
+      subject: 'Life Vault - Email Service Test',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;">
+          <h2 style="color: #333;">Email Service Test</h2>
+          <p>This is a test email from Life Vault to verify the email service is working correctly.</p>
+          <p>Sent at: ${new Date().toISOString()}</p>
+        </div>
+      `,
+    };
+    
+    const result = await transporter.sendMail(testMailOptions);
+    console.log('[Email Service] Test email sent successfully:', result.messageId);
+    return { success: true, messageId: result.messageId };
+  } catch (error) {
+    console.error('[Email Service] Test email failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function sendScheduledSlotNotification(recipientEmail, slotName, accessLink) {
   try {
 
@@ -172,6 +202,19 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
 
   } catch (error) {
     console.error('[Email Service] Failed to send notification:', error);
+    
+    // Try fallback transporter if primary fails
+    if (fallbackTransporter && !error.message.includes('fallback')) {
+      console.log('[Email Service] Trying fallback transporter...');
+      try {
+        const fallbackResult = await fallbackTransporter.sendMail(mailOptions);
+        console.log('[Email Service] Notification sent via fallback to', recipientEmail);
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[Email Service] Fallback also failed:', fallbackError);
+      }
+    }
+    
     throw error;
   }
 }

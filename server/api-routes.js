@@ -528,4 +528,15 @@ router.post('/auth/delete-account', verifyToken, async (req, res) => {
   }
 });
 
+// Test email service endpoint
+router.post('/test-email', async (req, res) => {
+  try {
+    const emailService = await import('./email-service.js');
+    const result = await emailService.testEmailService();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

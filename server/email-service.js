@@ -30,12 +30,10 @@ export async function initEmailService() {
       hasPassword: !!process.env.SMTP_PASSWORD
     });
 
-    const smtpPort = parseInt(process.env.SMTP_PORT || '587');
-    
-    transporter = nodemailer.createTransport({
+    let transporterConfig = {
       host: process.env.SMTP_HOST,
-      port: smtpPort,
-      secure: smtpPort === 465,
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: true, // Try SSL first
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
@@ -43,20 +41,32 @@ export async function initEmailService() {
       tls: {
         rejectUnauthorized: false
       },
-      // Better connection settings
-      connectionTimeout: 30000,
+      connectionTimeout: 20000,
       greetingTimeout: 10000,
-      socketTimeout: 30000,
-      // Add pool configuration for better reliability
+      socketTimeout: 20000,
       pool: true,
       maxConnections: 1,
       maxMessages: 100,
       rateDelta: 1000,
       rateLimit: 5
-    });
+    };
 
-    await transporter.verify();
-    console.log('[Email Service] SMTP connection verified successfully');
+    // Try to create transporter
+    try {
+      transporter = nodemailer.createTransport(transporterConfig);
+      await transporter.verify();
+      console.log('[Email Service] SMTP connection verified successfully (port 465)');
+    } catch (port465Error) {
+      console.log('[Email Service] Port 465 failed, trying port 587...', port465Error.message);
+      
+      // Fallback to port 587 with TLS
+      transporterConfig.port = 587;
+      transporterConfig.secure = false;
+      
+      transporter = nodemailer.createTransport(transporterConfig);
+      await transporter.verify();
+      console.log('[Email Service] SMTP connection verified successfully (port 587)');
+    }
     
     // Initialize fallback
     await initFallbackTransporter();

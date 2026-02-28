@@ -63,10 +63,6 @@ export default function DeathVault() {
 
   const handleAddSlot = async (e) => {
     e.preventDefault();
-    if (slots.length >= 2) {
-      setError('Maximum 2 slots allowed in Death Vault');
-      return;
-    }
     setSubmitting(true);
     setError('');
     try {
@@ -312,14 +308,12 @@ export default function DeathVault() {
             </div>
             <span className="font-bold text-slate-900">Death Vault</span>
           </div>
-          {slots.length < 2 && (
-            <Button 
-              onClick={() => setShowAddSlot(true)}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-lg shadow-rose-100"
-            >
-              <Plus size={18} className="mr-2" /> New Legacy Slot
-            </Button>
-          )}
+          <Button 
+            onClick={() => setShowAddSlot(true)}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-lg shadow-rose-100"
+          >
+            <Plus size={18} className="mr-2" /> New Legacy Slot
+          </Button>
         </div>
       </header>
 

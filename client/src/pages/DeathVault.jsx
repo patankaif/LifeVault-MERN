@@ -425,183 +425,103 @@ export default function DeathVault() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1 pt-4 overflow-y-auto">
-                    {/* Add Text Input */}
-                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                      <div className="flex gap-2 mb-2">
-                        <MessageSquare size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                        <span className="text-xs font-medium text-blue-800">Add Message</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Textarea
-                          value={newText[slot._id] || ''}
-                          onChange={(e) => setNewText({ ...newText, [slot._id]: e.target.value })}
-                          placeholder="Write a message for your loved one..."
-                          className="flex-1 min-h-[60px] resize-none"
-                          rows={2}
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => handleAddText(slot._id)}
-                          disabled={!newText[slot._id] || newText[slot._id].trim() === ''}
-                          className="h-fit px-3"
-                        >
-                          Add
-                        </Button>
-                      </div>
+                <CardContent className="flex-1 flex flex-col overflow-hidden p-4">
+                  {/* Hidden file inputs */}
+                  <input
+                    id={`image-input-${slot._id}`}
+                    type="file"
+                    accept="image/*"
+                    onChange={e => addMedia(slot._id, e.target.files?.[0])}
+                    className="hidden"
+                  />
+                  <input
+                    id={`video-input-${slot._id}`}
+                    type="file"
+                    accept="video/*"
+                    onChange={e => addMedia(slot._id, e.target.files?.[0])}
+                    className="hidden"
+                  />
+
+                  {/* Content Display Area */}
+                  <div className="flex-1 space-y-3 overflow-y-auto">
+                    {/* Unified Content Grid */}
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* Texts */}
+                      {slot.texts && slot.texts.map((text) => (
+                        <div key={text._id} className="relative group bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200">
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className="bg-blue-100 p-1.5 rounded-full flex-shrink-0">
+                              <MessageSquare className="text-blue-600" size={10} />
+                            </div>
+                            <p className="text-sm text-gray-700 flex-1 break-words">{text.content}</p>
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => deleteText(slot._id, text._id)} className="absolute top-2 right-2 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      ))}
+
+                      {/* Media */}
+                      {slot.media && slot.media.map((media) => (
+                        <div key={media._id} className="relative group/media">
+                          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
+                            {media.type === 'image' ? (
+                              <img 
+                                src={media.url} 
+                                alt="Media"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : media.type === 'video' ? (
+                              <video 
+                                src={media.url} 
+                                controls
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                <ImageIcon size={24} className="text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => deleteMedia(slot._id, media._id)} className="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 opacity-0 group-hover/media:opacity-100 transition-opacity h-6 w-6 p-0">
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Content Display Area */}
-                    <div className="space-y-3">
-                      {slot.texts && slot.texts.length > 0 && (
-                        <>
-                          <h4 className="font-medium text-xs text-gray-600 flex items-center gap-1">
-                            Messages ({slot.texts.length})
-                          </h4>
-                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {slot.texts.map((text) => (
-                              <div key={text._id} className="relative bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200 group/text">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div className="bg-blue-100 p-1.5 rounded-full flex-shrink-0">
-                                      <MessageSquare className="text-blue-600" size={12} />
-                                    </div>
-                                    {editingText === text._id ? (
-                                      <Textarea
-                                        value={text.content}
-                                        onChange={(e) => {
-                                          setSlots(slots.map(slot => 
-                                            slot._id === slot._id ? {
-                                              ...slot,
-                                              texts: slot.texts.map(t => 
-                                                t._id === text._id ? { ...t, content: e.target.value } : t
-                                              )
-                                            } : slot
-                                          ));
-                                        }}
-                                        className="flex-1 text-sm bg-white border-blue-200 focus:border-blue-400"
-                                        rows={2}
-                                      />
-                                    ) : (
-                                      <p className="text-sm text-gray-700 flex-1 min-w-0 truncate">{text.content}</p>
-                                    )}
-                                  </div>
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {editingText === text._id ? (
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        onClick={() => updateText(slot._id, text._id, text.content)}
-                                        className="h-6 px-2 text-xs"
-                                      >
-                                        Save
-                                      </Button>
-                                    ) : (
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        onClick={() => setEditingText(text._id)}
-                                        className="h-6 px-2 text-xs hover:bg-blue-100"
-                                      >
-                                        Edit
-                                      </Button>
-                                    )}
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={() => deleteText(slot._id, text._id)}
-                                      className="h-6 px-2 text-xs text-red-600 hover:bg-red-50"
-                                    >
-                                      <Trash2 size={12} />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {slot.media && slot.media.length > 0 && (
-                        <>
-                          <h4 className="font-medium text-xs text-gray-600 flex items-center gap-1">
-                            Media ({slot.media.length})
-                          </h4>
-                          <div className="grid grid-cols-3 gap-2">
-                            {slot.media.map((media) => (
-                              <div key={media._id} className="relative group/media">
-                                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
-                                  {media.type === 'image' ? (
-                                    <img 
-                                      src={media.url} 
-                                      alt="Media"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : media.type === 'video' ? (
-                                    <video 
-                                      src={media.url} 
-                                      controls
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                                      <ImageIcon size={24} className="text-gray-400" />
-                                    </div>
-                                  )}
-                                </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => deleteMedia(slot._id, media._id)}
-                                  className="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 opacity-0 group-hover/media:opacity-100 transition-opacity h-6 w-6 p-0"
-                                >
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {(!slot.texts || slot.texts.length === 0) && (!slot.media || slot.media.length === 0) && (
-                        <div className="flex flex-col items-center justify-center h-full py-8 text-gray-400">
-                          <Shield className="w-16 h-16 mb-4 opacity-40" />
-                          <p className="text-sm text-slate-500 text-center max-w-xs mx-auto mb-6">
-                            No messages or media added yet. Start creating your legacy.
-                          </p>
-                          <div className="space-y-2">
-                            <div className="flex gap-2 mb-4">
-                              <Textarea
-                                value={newText[slot._id] || ''}
-                                onChange={(e) => setNewText({ ...newText, [slot._id]: e.target.value })}
-                                placeholder="Write your first message..."
-                                className="flex-1 min-h-[60px] resize-none"
-                                rows={3}
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleAddText(slot._id)}
-                                disabled={!newText[slot._id] || newText[slot._id].trim() === ''}
-                                className="h-fit px-3 whitespace-nowrap"
-                              >
-                                Add Message
-                              </Button>
-                            </div>
-                            <label className="flex items-center justify-center w-full h-12 border-2 border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-gray-400 cursor-pointer transition-colors bg-gray-50 hover:bg-gray-50">
-                              <ImageIcon size={16} className="mr-2 flex-shrink-0" />
-                              Add Photo/Video
-                              <input
-                                type="file"
-                                accept="image/*,video/*"
-                                onChange={(e) => e.target.files[0] && addMedia(slot._id, e.target.files[0])}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
+                    {/* Show more indicator if content exceeds 9 items */}
+                    {((slot.texts?.length || 0) + (slot.media?.length || 0)) > 9 && (
+                      <div className="h-20 bg-gray-50 rounded border border-gray-200 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-xs text-gray-500">+{((slot.texts?.length || 0) + (slot.media?.length || 0)) - 9}</div>
+                          <div className="text-xs text-gray-500">more</div>
                         </div>
                       )}
-                    </div>
-                  </CardContent>
+                  </div>
+
+                  {/* Add Content Buttons Row */}
+                  <div className="grid grid-cols-3 gap-4 mb-2 flex-shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                      setTimeout(() => document.getElementById(`text-input-${slot._id}`)?.focus(), 100);
+                    }} className="text-xs h-8">
+                      <MessageSquare size={12} className="mr-1" /> Text
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                      setTimeout(() => document.getElementById(`image-input-${slot._id}`)?.click(), 100);
+                    }} className="text-xs h-8">
+                      <ImageIcon size={12} className="mr-1" /> Image
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                      setTimeout(() => document.getElementById(`video-input-${slot._id}`)?.click(), 100);
+                    }} className="text-xs h-8">
+                      <VideoIcon size={12} className="mr-1" /> Video
+                    </Button>
+                  </div>
+                </CardContent>
                 </Card>
               </motion.div>
             ))

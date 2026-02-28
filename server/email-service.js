@@ -31,8 +31,13 @@ export async function initEmailService() {
     });
 
     const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+    // Use IPv4 address directly to avoid IPv6 connection issues
+    const smtpHost = process.env.SMTP_HOST === 'smtp.gmail.com' 
+      ? '64.233.184.108' // Gmail's IPv4 address
+      : process.env.SMTP_HOST;
+    
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: smtpHost,
       port: smtpPort,
       secure: smtpPort === 465,
       auth: {
@@ -41,7 +46,11 @@ export async function initEmailService() {
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      // Increase timeouts for better reliability
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000
     });
 
     await transporter.verify();

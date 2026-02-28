@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { 
   Heart, Shield, ArrowLeft, Plus, Trash2, 
   Mail, User, ChevronRight, Loader2, AlertCircle,
-  CheckCircle2, Info, Lock, Clock, Users, Archive
+  CheckCircle2, Info, Lock, Clock, Users, Archive,
+  MessageSquare, ImageIcon, VideoIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,6 +25,13 @@ export default function DeathVault() {
     recipientEmail: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [expandedSlot, setExpandedSlot] = useState(null);
+  const [editingText, setEditingText] = useState(null);
+  const [newText, setNewText] = useState({});
+  const [uploadingMedia, setUploadingMedia] = useState(null);
+  const [editingSlot, setEditingSlot] = useState(null);
+  const [editingSlotName, setEditingSlotName] = useState('');
+  const [activeTab, setActiveTab] = useState({});
 
   useEffect(() => {
     if (!authLoading) {
@@ -67,16 +75,6 @@ export default function DeathVault() {
       });
       const data = await response.json();
       if (data.success) {
-        if (newSlot.recipientEmail) {
-          await authFetch(`/api/slots/${data.slot._id}/schedule`, {
-            method: 'POST',
-            body: JSON.stringify({
-              recipientEmail: newSlot.recipientEmail,
-              scheduledDate: new Date(Date.now() + 9 * 30 * 24 * 60 * 60 * 1000).toISOString(),
-              vaultType: 'death',
-            }),
-          });
-        }
         setShowAddSlot(false);
         setNewSlot({ name: '', recipientEmail: '' });
         fetchSlots();
@@ -102,6 +100,112 @@ export default function DeathVault() {
         fetchSlots();
       } else {
         setError(data.message || 'Failed to delete slot');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    }
+  };
+
+  const addText = async (slotId, text) => {
+    try {
+      const response = await authFetch(`/api/slots/${slotId}/texts`, {
+        method: 'POST',
+        body: JSON.stringify({ content: text, vaultType: 'death' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(slots.map(slot => 
+          slot._id === slotId ? { ...slot, texts: [...(slot.texts || []), { _id: data.text._id, content: text, createdAt: new Date() }] } : slot
+        ));
+        setNewText({ ...newText, [slotId]: '' });
+        setEditingText(null);
+      } else {
+        setError(data.message || 'Failed to add text');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    }
+  };
+
+  const deleteText = async (slotId, textId) => {
+    try {
+      const response = await authFetch(`/api/slots/${slotId}/texts/${textId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ vaultType: 'death' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(slots.map(slot => 
+          slot._id === slotId ? { ...slot, texts: slot.texts.filter(t => t._id !== textId) } : slot
+        ));
+      } else {
+        setError(data.message || 'Failed to delete text');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    }
+  };
+
+  const updateText = async (slotId, textId, content) => {
+    try {
+      const response = await authFetch(`/api/slots/${slotId}/texts/${textId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content, vaultType: 'death' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(slots.map(slot => 
+          slot._id === slotId ? { ...slot, texts: slot.texts.map(t => t._id === textId ? { ...t, content } : t) } : slot
+        ));
+        setEditingText(null);
+        setNewText({ ...newText, [slotId]: '' });
+      } else {
+        setError(data.message || 'Failed to update text');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    }
+  };
+
+  const addMedia = async (slotId, file) => {
+    try {
+      setUploadingMedia(slotId);
+      const formData = new FormData();
+      formData.append('media', file);
+      formData.append('vaultType', 'death');
+
+      const response = await authFetch(`/api/slots/${slotId}/media`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(slots.map(slot => 
+          slot._id === slotId ? { ...slot, media: [...(slot.media || []), { _id: data.media._id, url: data.media.url, type: data.media.type, uploadedAt: new Date() }] } : slot
+        ));
+      } else {
+        setError(data.message || 'Failed to add media');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setUploadingMedia(null);
+    }
+  };
+
+  const deleteMedia = async (slotId, mediaId) => {
+    try {
+      const response = await authFetch(`/api/slots/${slotId}/media/${mediaId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ vaultType: 'death' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(slots.map(slot => 
+          slot._id === slotId ? { ...slot, media: slot.media.filter(m => m._id !== mediaId) } : slot
+        ));
+      } else {
+        setError(data.message || 'Failed to delete media');
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -250,27 +354,76 @@ export default function DeathVault() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <div className="flex items-center justify-between text-sm text-slate-500 bg-slate-50 p-3 rounded-xl">
-                      <div className="flex items-center gap-2">
-                        <Clock size={14} />
-                        <span>Trigger: 9mo Inactivity</span>
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        slot.delivered ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                      }`}>
-                        {slot.delivered ? 'Delivered' : 'Locked'}
-                      </span>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      className="w-full mt-6 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-rose-600 group/btn"
-                      onClick={() => navigate(`/slots/${slot._id}`)}
-                    >
-                      Manage Legacy Content <ChevronRight size={16} className="ml-2 group-hover/btn:translate-x-1 transition-transform" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                    {/* Content Display Area */}
+                    <div className={`flex-1 space-y-3 ${slot.delivered ? 'overflow-y-auto' : ''}`}>
+                      {slot.texts && slot.texts.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-xs text-gray-600">Messages</h4>
+                          <div className="space-y-1">
+                            {slot.texts.map((text) => (
+                              <div key={text._id} className="relative group bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200 h-24 flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="bg-blue-100 p-1.5 rounded-full">
+                                      <MessageSquare className="text-blue-600" size={10} />
+                                    </div>
+                                    <p className="text-sm text-gray-700 flex-1 truncate">{text.content}</p>
+                                  </div>
+                                  {editingText === text._id && (
+                                    <Button variant="ghost" size="sm" onClick={() => setEditingText(null)} className="text-gray-400 hover:text-gray-600">
+                                      Done
+                                    </Button>
+                                  )}
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => deleteText(slot._id, text._id)} className="text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 size={16} />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      
+                      {slot.media && slot.media.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-xs text-gray-600">Media</h4>
+                          <div className="grid grid-cols-3 gap-2">
+                            {slot.media.map((media) => (
+                              <div key={media._id} className="relative group">
+                                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                  {media.type === 'image' ? (
+                                    <img 
+                                      src={media.url} 
+                                      alt={media.url}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : media.type === 'video' ? (
+                                    <video 
+                                      src={media.url} 
+                                      controls
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : null}
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => deleteMedia(slot._id, media._id)} className="absolute top-2 right-2 bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 size={16} />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                      {slot.texts.length === 0 && slot.media.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-32 text-gray-400">
+                          <div className="text-center">
+                            <MessageSquare size={24} className="text-gray-400" />
+                            <div className="text-gray-400 text-sm">No content yet</div>
+                            <div className="text-gray-400 text-xs mt-1">Add content to schedule this slot</div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
             ))
           ) : (
             <div className="col-span-full py-20 text-center">

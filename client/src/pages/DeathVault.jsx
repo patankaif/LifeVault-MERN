@@ -472,54 +472,58 @@ export default function DeathVault() {
               if (totalItems > 9) cardHeight = 'h-[520px]';
               
               return (
-                <motion.div 
-                  key={slot._id}
-                  variants={itemVariants}
-                  className={`w-full ${cardHeight}`}
-                >
-                  <Card className="flex flex-col h-full overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white">
-                    <div className={`h-1 w-full ${slot.delivered ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                    <CardHeader className="flex-shrink-0 p-6 pb-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className={`p-2 rounded-xl ${slot.delivered ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
-                          {slot.delivered ? (
-                            <CheckCircle2 size={20} />
-                          ) : (
-                            <Lock size={20} />
-                          )}
-                        </div>
-                        <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setViewSlotModal(slot)}
-                            className="text-blue-600 hover:bg-blue-50 h-9 w-9 p-0 shadow-sm"
-                          >
-                            <Eye size={16} />
-                          </Button>
-                          {!slot.delivered && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleDeleteSlot(slot._id)}
-                              className="text-red-600 hover:bg-red-50 h-9 w-9 p-0 shadow-sm"
-                            >
-                              <Trash2 size={16} />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <CardTitle className="text-xl font-bold text-center text-slate-900 truncate px-2">
+                <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white">
+                <CardHeader className="flex flex-col items-center justify-center text-center pb-2 flex-shrink-0">
+                  <div className="relative w-full">
+                    {editingSlot === slot._id ? (
+                      <Input 
+                        value={editingSlotName}
+                        onChange={e => setEditingSlotName(e.target.value)}
+                        onBlur={() => updateSlotName(slot._id)}
+                        onKeyDown={e => e.key === 'Enter' && updateSlotName(slot._id)}
+                        className="text-xl font-bold text-center mb-2 border-2 border-blue-500"
+                        autoFocus
+                      />
+                    ) : (
+                      <CardTitle 
+                        className={`text-xl font-bold text-center mb-2 ${slot.delivered ? '' : 'cursor-pointer hover:text-blue-600'}`} 
+                        onClick={() => {
+                          if (!slot.delivered) {
+                            setEditingSlot(slot._id);
+                            setEditingSlotName(slot.name);
+                          }
+                        }}
+                      >
                         {slot.name}
                       </CardTitle>
-                      <CardDescription className="flex items-center justify-center gap-2 text-sm mt-2 px-2">
-                        <Mail size={16} /> 
-                        <span className="truncate max-w-[200px]">{slot.recipientEmail}</span>
-                      </CardDescription>
-                      <p className="text-xs text-slate-500 text-center mt-2 font-medium">
-                        {texts.length} texts, {media.length} media
-                      </p>
-                    </CardHeader>
+                    )}
+                    <div className="flex justify-center gap-2">
+                      <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
+                        <Eye size={16} />
+                      </Button>
+                      {!slot.delivered && (
+                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteSlot(slot._id)}>
+                          <Trash2 size={16} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
+                  
+                  {/* Scheduled Email Display */}
+                  {slot.recipientEmail && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Mail size={16} className="text-blue-600" />
+                          <div>
+                            <p className="text-sm font-semibold text-blue-800">Recipient:</p>
+                            <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                     
                     <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
                       {/* Hidden file inputs */}
@@ -662,115 +666,82 @@ export default function DeathVault() {
                             onClick={() => document.getElementById(`video-input-${slot._id}`)?.click()}
                             className="text-xs h-11 border-slate-200 hover:bg-slate-50"
                           >
-                            <VideoIcon size={16} className="mr-2" /> Video
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })
-          ) : (
-            <motion.div 
-              variants={itemVariants}
-              className="col-span-full flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200 shadow-sm"
-            >
-              <Shield className="w-24 h-24 text-slate-300 mb-6" />
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">No Legacy Slots</h3>
-              <p className="text-slate-500 mb-8 max-w-md mx-auto leading-relaxed">
-                Create your first legacy slot to store messages and memories for your loved ones. They'll receive everything after 9 months of inactivity.
-              </p>
-              <Button 
-                onClick={() => setShowAddSlot(true)}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-12 h-12 shadow-lg shadow-rose-100 text-lg"
-              >
-                <Plus size={20} className="mr-3" /> Create First Legacy Slot
-              </Button>
-            </motion.div>
           )}
-        </motion.div>
+        </div>
+      </div>
+      <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
+      
+      {/* Scheduled Email Display */}
+      {slot.recipientEmail && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Mail size={16} className="text-blue-600" />
+              <div>
+                <p className="text-sm font-semibold text-blue-800">Recipient:</p>
+                <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+        
+        <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
+          {/* Hidden file inputs */}
+          <input
+            key={`text-${slot._id}`}
+            id={`text-input-${slot._id}`}
+            type="text"
+            className="sr-only"
+          />
+          <input
+            key={`img-${slot._id}`}
+            id={`image-input-${slot._id}`}
+            type="file"
+            accept="image/*"
+            onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
+            className="sr-only"
+            ref={(el) => {
+              if (el) fileInputRefs.current[`image-${slot._id}`] = el;
+            }}
+          />
+          <input
+            key={`vid-${slot._id}`}
+            id={`video-input-${slot._id}`}
+            type="file"
+            accept="video/*"
+            onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
+            className="sr-only"
+            ref={(el) => {
+              if (el) fileInputRefs.current[`video-${slot._id}`] = el;
+            }}
+          />
 
-        {/* View Slot Modal */}
-        <AnimatePresence>
-          {viewSlotModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-              onClick={() => setViewSlotModal(null)}
-            >
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                transition={{ type: "spring", damping: 25, stiffness: 500 }}
-                className="bg-white rounded-3xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl border border-slate-200"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="p-8 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-3xl font-bold text-slate-900">{viewSlotModal.name}</h2>
-                      <p className="text-slate-600 mt-1">{viewSlotModal.recipientEmail}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setViewSlotModal(null)}
-                      className="h-10 w-10 p-0 text-slate-500 hover:bg-slate-200 rounded-xl"
+          {/* Content Display Area */}
+          <div className="flex-1 space-y-3 overflow-y-auto pb-3 max-h-64 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+            {texts.slice(0, 8).map((text) => (
+              <div key={text._id} className="relative group bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-200 hover:shadow-sm transition-all duration-200 hover:border-slate-300">
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="bg-blue-100 p-2 rounded-full flex-shrink-0 mt-0.5">
+                    <MessageSquare className="text-blue-600" size={14} />
+                  </div>
+                  <p className="text-sm text-slate-700 flex-1 break-words line-clamp-2 leading-relaxed">
+                    {text.content}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{new Date(text.createdAt).toLocaleDateString()}</span>
+                  {!slot.delivered && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => deleteText(slot._id, text._id)}
+                      className="text-red-600 hover:bg-red-50 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-all"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <Trash2 size={14} />
                     </Button>
-                  </div>
+                  )}
                 </div>
-                <div className="max-h-96 overflow-y-auto p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Messages</h3>
-                      {(viewSlotModal.texts || []).slice(0, 5).map((text) => (
-                        <div key={text._id} className="mb-4 p-4 bg-slate-50 rounded-xl">
-                          <p className="text-slate-700 leading-relaxed">{text.content}</p>
-                          <p className="text-xs text-slate-500 mt-2">{new Date(text.createdAt).toLocaleDateString()}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Media ({(viewSlotModal.media || []).length})</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                        {(viewSlotModal.media || []).slice(0, 4).map((media) => (
-                          <div key={media._id} className="aspect-square rounded-xl overflow-hidden border shadow-sm">
-                            {media.type === 'image' ? (
-                              <img src={media.url} alt="Media" className="w-full h-full object-cover" />
-                            ) : (
-                              <video src={media.url} className="w-full h-full object-cover" muted />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Security Card */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mt-20"
-        >
-          <Card className="border-none shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 text-white overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-transparent to-emerald-500/5"></div>
-            <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl"></div>
-            <CardContent className="p-8 md:p-12 relative z-10">
-              <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
                 <div className="w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-rose-300 flex-shrink-0 shadow-2xl">
                   <Lock className="w-12 h-12 md:w-14 md:h-14" />
                 </div>

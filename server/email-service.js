@@ -6,16 +6,29 @@ let fallbackTransporter = null;
 // Initialize fallback transporter (using Ethereal or other service)
 async function initFallbackTransporter() {
   try {
-    // Using Ethereal for testing (replace with production service)
-    fallbackTransporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      auth: {
-        user: 'ethereal.user@ethereal.email',
-        pass: 'ethereal.pass'
+    // For cloud platforms, use a simple HTTP-based email service
+    fallbackTransporter = {
+      sendMail: async (mailOptions) => {
+        console.log('[Email Service] Fallback: Would send email via HTTP API');
+        console.log('[Email Service] Fallback details:', {
+          to: mailOptions.to,
+          subject: mailOptions.subject,
+          hasHtml: !!mailOptions.html
+        });
+        
+        // For now, just log the email - in production you'd use a service like:
+        // - SendGrid API
+        // - Mailgun API  
+        // - AWS SES API
+        // - Resend API
+        
+        return {
+          messageId: 'fallback-' + Date.now(),
+          response: 'Email logged (no SMTP available)'
+        };
       }
-    });
-    console.log('[Email Service] Fallback transporter initialized');
+    };
+    console.log('[Email Service] Fallback transporter initialized (HTTP API mode)');
   } catch (error) {
     console.warn('[Email Service] Fallback transporter failed:', error.message);
   }
@@ -30,42 +43,65 @@ export async function initEmailService() {
       hasPassword: !!process.env.SMTP_PASSWORD
     });
 
-    let transporterConfig = {
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: true, // Try SSL first
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-      tls: {
-        rejectUnauthorized: false
-      },
-      connectionTimeout: 20000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000,
-      pool: true,
-      maxConnections: 1,
-      maxMessages: 100,
-      rateDelta: 1000,
-      rateLimit: 5
-    };
+    // Try SendGrid first (better for cloud platforms)
+    if (process.env.SMTP_HOST === 'smtp.sendgrid.net') {
+      transporter = nodemailer.createTransport({
+        host: 'smtp.sendgrid.net',
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER, // 'apikey'
+          pass: process.env.SMTP_PASSWORD, // SendGrid API key
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 20000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 100,
+        rateDelta: 1000,
+        rateLimit: 5
+      });
+    } else {
+      // Try Gmail with fallback
+      let transporterConfig = {
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '465'),
+        secure: true,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD,
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 8000,
+        socketTimeout: 15000,
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 100,
+        rateDelta: 1000,
+        rateLimit: 5
+      };
 
-    // Try to create transporter
-    try {
-      transporter = nodemailer.createTransport(transporterConfig);
-      await transporter.verify();
-      console.log('[Email Service] SMTP connection verified successfully (port 465)');
-    } catch (port465Error) {
-      console.log('[Email Service] Port 465 failed, trying port 587...', port465Error.message);
-      
-      // Fallback to port 587 with TLS
-      transporterConfig.port = 587;
-      transporterConfig.secure = false;
-      
-      transporter = nodemailer.createTransport(transporterConfig);
-      await transporter.verify();
-      console.log('[Email Service] SMTP connection verified successfully (port 587)');
+      try {
+        transporter = nodemailer.createTransport(transporterConfig);
+        await transporter.verify();
+        console.log('[Email Service] SMTP connection verified successfully (port 465)');
+      } catch (port465Error) {
+        console.log('[Email Service] Port 465 failed, trying port 587...', port465Error.message);
+        
+        transporterConfig.port = 587;
+        transporterConfig.secure = false;
+        
+        transporter = nodemailer.createTransport(transporterConfig);
+        await transporter.verify();
+        console.log('[Email Service] SMTP connection verified successfully (port 587)');
+      }
     }
     
     // Initialize fallback

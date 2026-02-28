@@ -232,7 +232,9 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
           // Convert local time to UTC by subtracting the timezone offset
           parsedDate = new Date(localDate.getTime() - timezoneOffset);
           
-          console.log(`[Vault] Timezone conversion: Local ${scheduledDate} -> UTC ${parsedDate.toISOString()}, Offset: ${timezoneOffset/60000} minutes`);
+          // Show IST time for clarity
+          const istTime = new Date(parsedDate.getTime() + (5.5 * 60 * 60 * 1000));
+          console.log(`[Vault] Timezone conversion: Local ${scheduledDate} -> UTC ${parsedDate.toISOString()} -> IST ${istTime.toISOString().replace('Z', '+05:30')}, Offset: ${timezoneOffset/60000} minutes`);
         } else {
           // Parse the ISO string to maintain the exact time
           parsedDate = new Date(scheduledDate);
@@ -375,7 +377,9 @@ export async function sendScheduledSlots() {
   try {
     const db = await getDB();
     const now = new Date();
-    console.log(`[Vault] Current server time: ${now.toISOString()}`);
+    // Convert to IST (UTC+5:30)
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    console.log(`[Vault] Current server time: ${istTime.toISOString().replace('Z', '+05:30')} (IST)`);
 
     // Find all scheduled slots that are due to be sent
     const dueSchedulings = await db.collection('scheduling')

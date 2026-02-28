@@ -129,6 +129,10 @@ async function startServer() {
     
     console.log(`Server running on ${serverUrl}/`);
     
+    // Show current IST time
+    const istTime = new Date(Date.now() + (5.5 * 60 * 60 * 1000));
+    console.log(`[Server] Current IST time: ${istTime.toISOString().replace('Z', '+05:30')}`);
+    
     // Start all background jobs after server is ready
     if (startAllJobs) {
       console.log("[Server] Starting background jobs...");

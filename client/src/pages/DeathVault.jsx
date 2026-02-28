@@ -414,23 +414,8 @@ export default function DeathVault() {
 
                       {slot.texts.length === 0 && slot.media.length === 0 && (
                         <div className="flex flex-col items-center justify-center h-32 text-gray-400">
-                          <div className="text-center">
-                            <MessageSquare size={24} className="text-gray-400" />
-                            <div className="text-gray-400 text-sm">No content yet</div>
-                            <div className="text-gray-400 text-xs mt-1">Add content to schedule this slot</div>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-            ))
-          ) : (
-            <div className="col-span-full py-20 text-center">
-              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
                 <Shield size={40} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900">No legacy slots yet</h3>
               <p className="text-slate-500 mt-2 max-w-xs mx-auto">
                 Create your first legacy slot for your most important messages.
               </p>

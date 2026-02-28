@@ -63,6 +63,10 @@ export default function DeathVault() {
 
   const handleAddSlot = async (e) => {
     e.preventDefault();
+    if (slots.length >= 2) {
+      setError('Maximum 2 slots allowed in Death Vault');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -127,7 +131,7 @@ export default function DeathVault() {
       const data = await response.json();
       if (data.success) {
         const newTextObj = {
-          _id: data.text._id || Date.now().toString(),
+          _id: data.text?._id || Date.now().toString(),
           content: textContent,
           createdAt: new Date().toISOString()
         };
@@ -194,29 +198,53 @@ export default function DeathVault() {
   };
 
   const addMedia = async (slotId, file) => {
+    if (!file) return;
     try {
       setUploadingMedia(slotId);
-      const formData = new FormData();
-      formData.append('media', file);
-      formData.append('vaultType', 'death');
-
-      const response = await authFetch(`/api/slots/${slotId}/media`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSlots(slots.map(slot => 
-          slot._id === slotId ? { ...slot, media: [...(slot.media || []), { 
-            _id: data.media._id, 
-            url: data.media.url, 
-            type: data.media.type, 
-            uploadedAt: new Date() 
-          }] } : slot
-        ));
-      } else {
-        setError(data.message || 'Failed to add media');
-      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        if (!e.target?.result) return;
+        const base64 = e.target.result.split(',')[1];
+        const mediaType = file.type.startsWith('image') ? 'image' : 'video';
+        
+        try {
+          const response = await authFetch(`/api/slots/${slotId}/media`, {
+            method: 'POST',
+            body: JSON.stringify({ file: base64, mediaType }),
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Upload failed:', errorText);
+            // Provide better error messages based on status code
+            let errorMessage = `Upload failed: ${response.status}`;
+            if (response.status === 413) {
+              errorMessage = 'File too large - please upload a smaller file';
+            } else if (response.status === 415) {
+              errorMessage = 'Unsupported file type - please upload images or videos only';
+            } else if (response.status === 429) {
+              errorMessage = 'Too many upload attempts - please wait and try again';
+            } else if (response.status >= 500) {
+              errorMessage = 'Server error - please try again later';
+            }
+            setError(errorMessage);
+          } else {
+            const data = await response.json();
+            setSlots(slots.map(slot => 
+              slot._id === slotId ? { ...slot, media: [...(slot.media || []), { 
+                _id: data.media._id, 
+                url: data.media.url, 
+                type: data.media.type, 
+                uploadedAt: new Date() 
+              }] } : slot
+            ));
+          }
+        } catch (uploadError) {
+          console.error('Upload processing error:', uploadError);
+          setError('Upload failed - please try again');
+        }
+      };
+      reader.readAsDataURL(file);
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {
@@ -308,12 +336,14 @@ export default function DeathVault() {
             </div>
             <span className="font-bold text-slate-900">Death Vault</span>
           </div>
-          <Button 
-            onClick={() => setShowAddSlot(true)}
-            className="bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-lg shadow-rose-100"
-          >
-            <Plus size={18} className="mr-2" /> New Legacy Slot
-          </Button>
+          {slots.length < 2 && (
+            <Button 
+              onClick={() => setShowAddSlot(true)}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-lg shadow-rose-100"
+            >
+              <Plus size={18} className="mr-2" /> New Legacy Slot
+            </Button>
+          )}
         </div>
       </header>
 
@@ -391,79 +421,90 @@ export default function DeathVault() {
           {slots.length > 0 ? (
             slots.map((slot) => (
               <motion.div key={slot._id} variants={itemVariants}>
-                <Card className={`flex flex-col overflow-hidden ${slot.delivered ? 'h-[400px]' : 'h-[500px]'}`}>
-                  <CardHeader className="flex flex-col items-center justify-center text-center pb-2 flex-shrink-0">
-                    <div className="relative w-full">
-                      <div className="flex justify-center gap-2">
-                        <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
+                <Card className={`flex flex-col overflow-hidden h-[500px] ${slot.delivered ? 'ring-2 ring-emerald-200 bg-emerald-50/50' : ''}`}>
+                  <div className={`h-1 w-full ${slot.delivered ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                  <CardHeader className="flex-shrink-0 p-4 pb-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`p-2 rounded-lg ${slot.delivered ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {slot.delivered ? <CheckCircle2 size={18} /> : <Lock size={18} />}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setViewSlotModal(slot)}
+                          className="text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
+                        >
                           <Eye size={16} />
                         </Button>
                         {!slot.delivered && (
-                          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteSlot(slot._id)}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleDeleteSlot(slot._id)}
+                            className="text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                          >
                             <Trash2 size={16} />
                           </Button>
                         )}
                       </div>
-                      <CardTitle className={`text-xl font-bold text-center mb-2 ${slot.delivered ? '' : 'cursor-pointer hover:text-blue-600'}`} >
-                        {slot.name}
-                      </CardTitle>
-                      <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
-                    
-                      {/* Scheduled Email Display */}
-                      {slot.recipientEmail && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <Mail size={16} className="text-blue-600" />
-                              <div>
-                                <p className="text-sm font-semibold text-blue-800">Recipient:</p>
-                                <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
+                    <CardTitle className="text-lg font-bold text-center truncate">{slot.name}</CardTitle>
+                    <CardDescription className="flex items-center justify-center gap-1.5 text-sm mt-1">
+                      <Mail size={14} /> {slot.recipientEmail}
+                    </CardDescription>
+                    <p className="text-xs text-gray-500 text-center mt-1">
+                      {slot.texts?.length || 0} texts, {slot.media?.length || 0} media
+                    </p>
                   </CardHeader>
-                <CardContent className="flex-1 flex flex-col overflow-hidden p-4">
-                  {/* Hidden file inputs */}
-                  <input
-                    id={`image-input-${slot._id}`}
-                    type="file"
-                    accept="image/*"
-                    onChange={e => addMedia(slot._id, e.target.files?.[0])}
-                    className="hidden"
-                  />
-                  <input
-                    id={`video-input-${slot._id}`}
-                    type="file"
-                    accept="video/*"
-                    onChange={e => addMedia(slot._id, e.target.files?.[0])}
-                    className="hidden"
-                  />
+                  
+                  <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
+                    {/* Hidden file inputs */}
+                    <input
+                      id={`text-input-${slot._id}`}
+                      type="text"
+                      className="hidden"
+                    />
+                    <input
+                      id={`image-input-${slot._id}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={e => addMedia(slot._id, e.target.files?.[0])}
+                      className="hidden"
+                    />
+                    <input
+                      id={`video-input-${slot._id}`}
+                      type="file"
+                      accept="video/*"
+                      onChange={e => addMedia(slot._id, e.target.files?.[0])}
+                      className="hidden"
+                    />
 
-                  {/* Content Display Area */}
-                  <div className="flex-1 space-y-3 overflow-y-auto">
-                    {/* Unified Content Grid */}
-                    <div className="grid grid-cols-1 gap-3">
-                      {/* Texts */}
-                      {slot.texts && slot.texts.map((text) => (
+                    {/* Content Display Area */}
+                    <div className="flex-1 space-y-3 overflow-y-auto pb-2">
+                      {slot.texts && slot.texts.slice(0, 6).map((text) => (
                         <div key={text._id} className="relative group bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200">
                           <div className="flex items-start gap-2 mb-2">
                             <div className="bg-blue-100 p-1.5 rounded-full flex-shrink-0">
-                              <MessageSquare className="text-blue-600" size={10} />
+                              <MessageSquare className="text-blue-600" size={12} />
                             </div>
-                            <p className="text-sm text-gray-700 flex-1 break-words">{text.content}</p>
+                            <p className="text-sm text-gray-700 flex-1 break-words line-clamp-3">{text.content}</p>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => deleteText(slot._id, text._id)} className="absolute top-2 right-2 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 size={12} />
-                          </Button>
+                          {!slot.delivered && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => deleteText(slot._id, text._id)}
+                              className="absolute top-2 right-2 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                            >
+                              <Trash2 size={12} />
+                            </Button>
+                          )}
                         </div>
                       ))}
 
-                      {/* Media */}
-                      {slot.media && slot.media.map((media) => (
-                        <div key={media._id} className="relative group/media">
+                      {slot.media && slot.media.slice(0, 6).map((media) => (
+                        <div key={media._id} className="relative group">
                           <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
                             {media.type === 'image' ? (
                               <img 
@@ -474,8 +515,8 @@ export default function DeathVault() {
                             ) : media.type === 'video' ? (
                               <video 
                                 src={media.url} 
-                                controls
                                 className="w-full h-full object-cover"
+                                muted
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-gray-200">
@@ -483,52 +524,74 @@ export default function DeathVault() {
                               </div>
                             )}
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => deleteMedia(slot._id, media._id)} className="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 opacity-0 group-hover/media:opacity-100 transition-opacity h-6 w-6 p-0">
-                            <Trash2 size={12} />
-                          </Button>
+                          {!slot.delivered && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => deleteMedia(slot._id, media._id)}
+                              className="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                            >
+                              <Trash2 size={12} />
+                            </Button>
+                          )}
                         </div>
                       ))}
-                    </div>
 
-                    {/* Show more indicator if content exceeds 9 items */}
-                    {((slot.texts?.length || 0) + (slot.media?.length || 0)) > 9 && (
-                      <div className="h-20 bg-gray-50 rounded border border-gray-200 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-xs text-gray-500">+{((slot.texts?.length || 0) + (slot.media?.length || 0)) - 9}</div>
-                          <div className="text-xs text-gray-500">more</div>
+                      {((slot.texts?.length || 0) + (slot.media?.length || 0)) > 12 && (
+                        <div className="h-16 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
+                          <div className="text-center text-xs text-gray-500">
+                            +{((slot.texts?.length || 0) + (slot.media?.length || 0)) - 12} more items
+                          </div>
                         </div>
                       )}
-                  </div>
+                    </div>
 
-                  {/* Add Content Buttons Row */}
-                  <div className="grid grid-cols-3 gap-4 mb-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`text-input-${slot._id}`)?.focus(), 100);
-                    }} className="text-xs h-8">
-                      <MessageSquare size={12} className="mr-1" /> Text
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`image-input-${slot._id}`)?.click(), 100);
-                    }} className="text-xs h-8">
-                      <ImageIcon size={12} className="mr-1" /> Image
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                      setTimeout(() => document.getElementById(`video-input-${slot._id}`)?.click(), 100);
-                    }} className="text-xs h-8">
-                      <VideoIcon size={12} className="mr-1" /> Video
-                    </Button>
-                  </div>
-                </CardContent>
+                    {/* Add Content Buttons */}
+                    {!slot.delivered && (
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                            setTimeout(() => {
+                              const textarea = document.getElementById(`text-input-${slot._id}`);
+                              if (textarea) {
+                                textarea.focus();
+                                setNewText({ ...newText, [slot._id]: '' });
+                              }
+                            }, 100);
+                          }}
+                          className="text-xs h-10"
+                        >
+                          <MessageSquare size={14} className="mr-1" /> Text
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => document.getElementById(`image-input-${slot._id}`)?.click()}
+                          className="text-xs h-10"
+                        >
+                          <ImageIcon size={14} className="mr-1" /> Image
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => document.getElementById(`video-input-${slot._id}`)?.click()}
+                          className="text-xs h-10"
+                        >
+                          <VideoIcon size={14} className="mr-1" /> Video
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
                 </Card>
               </motion.div>
             ))
           ) : (
             <motion.div 
               variants={itemVariants}
-              className="col-span-full flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200"
+              className="col-span-full flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-sm"
             >
               <Shield className="w-24 h-24 text-gray-300 mb-6" />
               <h3 className="text-2xl font-bold text-gray-900 mb-2">No Legacy Slots</h3>
@@ -537,13 +600,53 @@ export default function DeathVault() {
               </p>
               <Button 
                 onClick={() => setShowAddSlot(true)}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-12 h-12 shadow-lg"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-12 h-12 shadow-lg shadow-rose-100"
               >
                 <Plus size={20} className="mr-2" /> Create First Legacy Slot
               </Button>
             </motion.div>
           )}
         </motion.div>
+
+        {/* View Slot Modal */}
+        <AnimatePresence>
+          {viewSlotModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              onClick={() => setViewSlotModal(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl max-w-2xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-gray-900">{viewSlotModal.name}</h2>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setViewSlotModal(null)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{viewSlotModal.recipientEmail}</p>
+                </div>
+                <div className="max-h-96 overflow-y-auto p-6">
+                  {/* Full content display would go here */}
+                  <p className="text-gray-500">Full content preview coming soon...</p>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Security Card */}
         <motion.div 

@@ -10,7 +10,7 @@ import {
   Heart, Shield, ArrowLeft, Plus, Trash2, 
   Mail, User, ChevronRight, Loader2, AlertCircle,
   CheckCircle2, Info, Lock, Clock, Users, Archive,
-  MessageSquare, ImageIcon, VideoIcon
+  MessageSquare, ImageIcon, VideoIcon, Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -32,6 +32,7 @@ export default function DeathVault() {
   const [uploadingMedia, setUploadingMedia] = useState(null);
   const [editingSlot, setEditingSlot] = useState(null);
   const [editingSlotName, setEditingSlotName] = useState('');
+  const [viewSlotModal, setViewSlotModal] = useState(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -249,6 +250,33 @@ export default function DeathVault() {
     }
   };
 
+  const updateSlotName = async (slotId) => {
+    try {
+      const response = await authFetch(`/api/slots/${slotId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          name: editingSlotName,
+          vaultType: 'death' 
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(slots.map(slot => 
+          slot._id === slotId ? { ...slot, name: editingSlotName } : slot
+        ));
+        setEditingSlot(null);
+        setEditingSlotName('');
+      } else {
+        setError(data.message || 'Failed to update slot name');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -369,26 +397,39 @@ export default function DeathVault() {
           {slots.length > 0 ? (
             slots.map((slot) => (
               <motion.div key={slot._id} variants={itemVariants}>
-                <Card className="border-none shadow-sm bg-white hover:shadow-md transition-all group overflow-hidden h-[500px] flex flex-col">
-                  <div className={`h-1.5 w-full ${slot.delivered ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                  <CardHeader className="pb-2 flex-shrink-0">
-                    <div className="flex items-center justify-between">
-                      <div className={`p-2 rounded-lg ${slot.delivered ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {slot.delivered ? <CheckCircle2 size={18} /> : <Lock size={18} />}
+                <Card className={`flex flex-col overflow-hidden ${slot.delivered ? 'h-[400px]' : 'h-[500px]'}`}>
+                  <CardHeader className="flex flex-col items-center justify-center text-center pb-2 flex-shrink-0">
+                    <div className="relative w-full">
+                      <div className="flex justify-center gap-2">
+                        <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
+                          <Eye size={16} />
+                        </Button>
+                        {!slot.delivered && (
+                          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deleteSlot(slot._id)}>
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => handleDeleteSlot(slot._id)}
-                        className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 size={16} />
-                      </Button>
+                      <CardTitle className={`text-xl font-bold text-center mb-2 ${slot.delivered ? '' : 'cursor-pointer hover:text-blue-600'}`} >
+                        {slot.name}
+                      </CardTitle>
+                      <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
+                    
+                      {/* Scheduled Email Display */}
+                      {slot.recipientEmail && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Mail size={16} className="text-blue-600" />
+                              <div>
+                                <p className="text-sm font-semibold text-blue-800">Recipient:</p>
+                                <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <CardTitle className="text-lg mt-4 truncate">{slot.name}</CardTitle>
-                    <CardDescription className="flex items-center gap-1.5 mt-1">
-                      <Mail size={14} /> {slot.recipientEmail || 'No recipient set'}
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="flex-1 pt-4 overflow-y-auto">
                     {/* Add Text Input */}

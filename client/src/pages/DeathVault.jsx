@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
 import { authFetch } from '@/lib/authFetch';
@@ -33,6 +33,7 @@ export default function DeathVault() {
   const [editingSlot, setEditingSlot] = useState(null);
   const [editingSlotName, setEditingSlotName] = useState('');
   const [viewSlotModal, setViewSlotModal] = useState(null);
+  const fileInputRefs = useRef({});
 
   useEffect(() => {
     if (!authLoading) {
@@ -47,15 +48,16 @@ export default function DeathVault() {
   const fetchSlots = async () => {
     try {
       setLoading(true);
+      setError('');
       const response = await authFetch('/api/vaults/death/slots');
-      const data = await response.json();
-      if (data.success) {
-        setSlots(data.slots || []);
-      } else {
-        setError(data.message || 'Failed to fetch slots');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to fetch slots');
       }
+      const data = await response.json();
+      setSlots(data.slots || []);
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +69,10 @@ export default function DeathVault() {
       setError('Maximum 2 slots allowed in Death Vault');
       return;
     }
+    if (!newSlot.name.trim() || !newSlot.recipientEmail.trim()) {
+      setError('Please fill in both fields');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -76,8 +82,8 @@ export default function DeathVault() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          slotName: newSlot.name,
-          recipientEmail: newSlot.recipientEmail
+          slotName: newSlot.name.trim(),
+          recipientEmail: newSlot.recipientEmail.trim()
         }),
       });
       const data = await response.json();
@@ -89,14 +95,14 @@ export default function DeathVault() {
         setError(data.message || 'Failed to add slot');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteSlot = async (slotId) => {
-    if (!window.confirm('Are you sure you want to delete this legacy slot?')) return;
+    if (!window.confirm('Are you sure you want to delete this legacy slot? This action cannot be undone.')) return;
     try {
       const response = await authFetch(`/api/slots/${slotId}`, {
         method: 'DELETE',
@@ -112,11 +118,11 @@ export default function DeathVault() {
         setError(data.message || 'Failed to delete slot');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     }
   };
 
-  const handleAddText = async (slotId) => {
+  const handleAddText = useCallback(async (slotId) => {
     const textContent = newText[slotId];
     if (!textContent || textContent.trim() === '') return;
 
@@ -126,13 +132,13 @@ export default function DeathVault() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content: textContent, vaultType: 'death' }),
+        body: JSON.stringify({ content: textContent.trim(), vaultType: 'death' }),
       });
       const data = await response.json();
-      if (data.success) {
+      if (data.success && data.text) {
         const newTextObj = {
-          _id: data.text?._id || Date.now().toString(),
-          content: textContent,
+          _id: data.text._id,
+          content: textContent.trim(),
           createdAt: new Date().toISOString()
         };
         setSlots(prev =>
@@ -142,14 +148,14 @@ export default function DeathVault() {
               : slot
           )
         );
-        setNewText({ ...newText, [slotId]: '' });
+        setNewText(prev => ({ ...prev, [slotId]: '' }));
       } else {
         setError(data.message || 'Failed to add text');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     }
-  };
+  }, [newText]);
 
   const deleteText = async (slotId, textId) => {
     try {
@@ -162,92 +168,119 @@ export default function DeathVault() {
       });
       const data = await response.json();
       if (data.success) {
-        setSlots(slots.map(slot => 
-          slot._id === slotId ? { ...slot, texts: slot.texts.filter(t => t._id !== textId) } : slot
+        setSlots(prev => prev.map(slot => 
+          slot._id === slotId 
+            ? { ...slot, texts: (slot.texts || []).filter(t => t._id !== textId) } 
+            : slot
         ));
       } else {
         setError(data.message || 'Failed to delete text');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     }
   };
 
   const updateText = async (slotId, textId, content) => {
+    if (!content.trim()) return;
     try {
       const response = await authFetch(`/api/slots/${slotId}/texts/${textId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content, vaultType: 'death' }),
+        body: JSON.stringify({ content: content.trim(), vaultType: 'death' }),
       });
       const data = await response.json();
       if (data.success) {
-        setSlots(slots.map(slot => 
-          slot._id === slotId ? { ...slot, texts: slot.texts.map(t => t._id === textId ? { ...t, content } : t) } : slot
+        setSlots(prev => prev.map(slot => 
+          slot._id === slotId 
+            ? { ...slot, texts: (slot.texts || []).map(t => t._id === textId ? { ...t, content: content.trim() } : t) } 
+            : slot
         ));
         setEditingText(null);
-        setNewText({ ...newText, [slotId]: '' });
       } else {
         setError(data.message || 'Failed to update text');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     }
   };
 
   const addMedia = async (slotId, file) => {
     if (!file) return;
+    
+    // File size limit: 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File too large. Maximum size is 10MB.');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/quicktime'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Unsupported file type. Please upload JPEG, PNG, GIF, WebP images or MP4 videos.');
+      return;
+    }
+
     try {
       setUploadingMedia(slotId);
+      setError('');
+      
       const reader = new FileReader();
       reader.onload = async (e) => {
         if (!e.target?.result) return;
+        
         const base64 = e.target.result.split(',')[1];
         const mediaType = file.type.startsWith('image') ? 'image' : 'video';
         
         try {
           const response = await authFetch(`/api/slots/${slotId}/media`, {
             method: 'POST',
-            body: JSON.stringify({ file: base64, mediaType }),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              file: base64, 
+              mediaType,
+              filename: file.name 
+            }),
           });
           
           if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Upload failed:', errorText);
-            // Provide better error messages based on status code
-            let errorMessage = `Upload failed: ${response.status}`;
+            const data = await response.json().catch(() => ({}));
+            let errorMessage = data.message || `Upload failed: ${response.status}`;
+            
             if (response.status === 413) {
-              errorMessage = 'File too large - please upload a smaller file';
+              errorMessage = 'File too large - maximum 10MB';
             } else if (response.status === 415) {
-              errorMessage = 'Unsupported file type - please upload images or videos only';
-            } else if (response.status === 429) {
-              errorMessage = 'Too many upload attempts - please wait and try again';
-            } else if (response.status >= 500) {
-              errorMessage = 'Server error - please try again later';
+              errorMessage = 'Unsupported file type';
             }
             setError(errorMessage);
-          } else {
-            const data = await response.json();
-            setSlots(slots.map(slot => 
-              slot._id === slotId ? { ...slot, media: [...(slot.media || []), { 
-                _id: data.media._id, 
-                url: data.media.url, 
-                type: data.media.type, 
-                uploadedAt: new Date() 
-              }] } : slot
-            ));
+            return;
           }
+          
+          const data = await response.json();
+          setSlots(prev => prev.map(slot => 
+            slot._id === slotId 
+              ? { ...slot, media: [...(slot.media || []), { 
+                  _id: data.media._id, 
+                  url: data.media.url, 
+                  type: data.media.type, 
+                  uploadedAt: new Date().toISOString(),
+                  filename: file.name
+                }] } 
+              : slot
+          ));
         } catch (uploadError) {
-          console.error('Upload processing error:', uploadError);
-          setError('Upload failed - please try again');
+          console.error('Upload error:', uploadError);
+          setError('Upload failed. Please try again.');
+        } finally {
+          setUploadingMedia(null);
         }
       };
       reader.readAsDataURL(file);
     } catch (err) {
       setError('Network error. Please try again.');
-    } finally {
       setUploadingMedia(null);
     }
   };
@@ -263,41 +296,23 @@ export default function DeathVault() {
       });
       const data = await response.json();
       if (data.success) {
-        setSlots(slots.map(slot => 
-          slot._id === slotId ? { ...slot, media: slot.media.filter(m => m._id !== mediaId) } : slot
+        setSlots(prev => prev.map(slot => 
+          slot._id === slotId 
+            ? { ...slot, media: (slot.media || []).filter(m => m._id !== mediaId) } 
+            : slot
         ));
       } else {
         setError(data.message || 'Failed to delete media');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(err.message || 'Network error. Please try again.');
     }
   };
 
-  const updateSlotName = async (slotId) => {
-    try {
-      const response = await authFetch(`/api/slots/${slotId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          name: editingSlotName,
-          vaultType: 'death' 
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setSlots(slots.map(slot => 
-          slot._id === slotId ? { ...slot, name: editingSlotName } : slot
-        ));
-        setEditingSlot(null);
-        setEditingSlotName('');
-      } else {
-        setError(data.message || 'Failed to update slot name');
-      }
-    } catch (err) {
-      setError('Network error. Please try again.');
+  const handleTextInputKeyDown = (e, slotId) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAddText(slotId);
     }
   };
 
@@ -314,20 +329,27 @@ export default function DeathVault() {
     visible: { opacity: 1, y: 0 }
   };
 
-  if (loading || authLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-12 w-12 text-rose-600 animate-spin" />
-        <p className="text-slate-500 font-medium">Opening Death Vault...</p>
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 text-rose-600 animate-spin" />
+          <p className="text-slate-500 font-medium">Opening Death Vault...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="text-slate-500 hover:text-slate-900">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/dashboard')} 
+            className="text-slate-500 hover:text-slate-900"
+          >
             <ArrowLeft size={20} className="mr-2" /> Back to Dashboard
           </Button>
           <div className="flex items-center gap-3">
@@ -354,10 +376,14 @@ export default function DeathVault() {
         </div>
 
         {error && (
-          <div className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium">
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium"
+          >
             <AlertCircle size={18} />
             {error}
-          </div>
+          </motion.div>
         )}
 
         <AnimatePresence>
@@ -397,12 +423,28 @@ export default function DeathVault() {
                       />
                     </div>
                     <div className="md:col-span-2 flex justify-end gap-3 pt-4">
-                      <Button variant="ghost" type="button" onClick={() => setShowAddSlot(false)} className="text-slate-500">
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        onClick={() => setShowAddSlot(false)} 
+                        className="text-slate-500"
+                        disabled={submitting}
+                      >
                         Cancel
                       </Button>
-                      <Button type="submit" disabled={submitting} className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-8">
-                        {submitting ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
-                        Create Legacy Slot
+                      <Button 
+                        type="submit" 
+                        disabled={submitting || !newSlot.name.trim() || !newSlot.recipientEmail.trim()}
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-8 disabled:opacity-50"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                            Creating...
+                          </>
+                        ) : (
+                          'Create Legacy Slot'
+                        )}
                       </Button>
                     </div>
                   </form>
@@ -424,194 +466,226 @@ export default function DeathVault() {
               const media = slot.media || [];
               const totalItems = texts.length + media.length;
               
-              let cardHeight = 'h-138';
-              if (totalItems > 3) cardHeight = 'h-141';
-              if (totalItems > 6) cardHeight = 'h-163';
-              if (totalItems > 9) cardHeight = 'h-168';
+              let cardHeight = 'h-[420px]';
+              if (totalItems > 3) cardHeight = 'h-[440px]';
+              if (totalItems > 6) cardHeight = 'h-[500px]';
+              if (totalItems > 9) cardHeight = 'h-[520px]';
               
               return (
-                <Card key={slot._id} className={`flex flex-col overflow-hidden ${cardHeight}`}>
-                  <div className={`h-1 w-full ${slot.delivered ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
-                  <CardHeader className="flex-shrink-0 p-4 pb-2">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`p-2 rounded-lg ${slot.delivered ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {slot.delivered ? <CheckCircle2 size={18} /> : <Lock size={18} />}
-                      </div>
-                      <div className="flex gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setViewSlotModal(slot)}
-                          className="text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
-                        >
-                          <Eye size={16} />
-                        </Button>
-                        {!slot.delivered && (
+                <motion.div 
+                  key={slot._id}
+                  variants={itemVariants}
+                  className={`w-full ${cardHeight}`}
+                >
+                  <Card className="flex flex-col h-full overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white">
+                    <div className={`h-1 w-full ${slot.delivered ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                    <CardHeader className="flex-shrink-0 p-6 pb-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className={`p-2 rounded-xl ${slot.delivered ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'}`}>
+                          {slot.delivered ? (
+                            <CheckCircle2 size={20} />
+                          ) : (
+                            <Lock size={20} />
+                          )}
+                        </div>
+                        <div className="flex gap-1">
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => handleDeleteSlot(slot._id)}
-                            className="text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                            onClick={() => setViewSlotModal(slot)}
+                            className="text-blue-600 hover:bg-blue-50 h-9 w-9 p-0 shadow-sm"
                           >
-                            <Trash2 size={16} />
+                            <Eye size={16} />
                           </Button>
-                        )}
-                      </div>
-                    </div>
-                    <CardTitle className="text-lg font-bold text-center truncate">{slot.name}</CardTitle>
-                    <CardDescription className="flex items-center justify-center gap-1.5 text-sm mt-1">
-                      <Mail size={14} /> {slot.recipientEmail}
-                    </CardDescription>
-                    <p className="text-xs text-gray-500 text-center mt-1">
-                      {slot.texts?.length || 0} texts, {slot.media?.length || 0} media
-                    </p>
-                  </CardHeader>
-                  
-                  <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
-                    {/* Hidden file inputs */}
-                    <input
-                      id={`text-input-${slot._id}`}
-                      type="text"
-                      className="hidden"
-                    />
-                    <input
-                      id={`image-input-${slot._id}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={e => addMedia(slot._id, e.target.files?.[0])}
-                      className="hidden"
-                    />
-                    <input
-                      id={`video-input-${slot._id}`}
-                      type="file"
-                      accept="video/*"
-                      onChange={e => addMedia(slot._id, e.target.files?.[0])}
-                      className="hidden"
-                    />
-
-                    {/* Content Display Area */}
-                    <div className="flex-1 space-y-3 overflow-y-auto pb-2">
-                      {slot.texts && slot.texts.slice(0, 6).map((text) => (
-                        <div key={text._id} className="relative group bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200">
-                          <div className="flex items-start gap-2 mb-2">
-                            <div className="bg-blue-100 p-1.5 rounded-full flex-shrink-0">
-                              <MessageSquare className="text-blue-600" size={12} />
-                            </div>
-                            <p className="text-sm text-gray-700 flex-1 break-words line-clamp-3">{text.content}</p>
-                          </div>
                           {!slot.delivered && (
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              onClick={() => deleteText(slot._id, text._id)}
-                              className="absolute top-2 right-2 text-red-600 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                              onClick={() => handleDeleteSlot(slot._id)}
+                              className="text-red-600 hover:bg-red-50 h-9 w-9 p-0 shadow-sm"
                             >
-                              <Trash2 size={12} />
+                              <Trash2 size={16} />
                             </Button>
                           )}
                         </div>
-                      ))}
+                      </div>
+                      <CardTitle className="text-xl font-bold text-center text-slate-900 truncate px-2">
+                        {slot.name}
+                      </CardTitle>
+                      <CardDescription className="flex items-center justify-center gap-2 text-sm mt-2 px-2">
+                        <Mail size={16} /> 
+                        <span className="truncate max-w-[200px]">{slot.recipientEmail}</span>
+                      </CardDescription>
+                      <p className="text-xs text-slate-500 text-center mt-2 font-medium">
+                        {texts.length} texts, {media.length} media
+                      </p>
+                    </CardHeader>
+                    
+                    <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
+                      {/* Hidden file inputs */}
+                      <input
+                        key={`text-${slot._id}`}
+                        id={`text-input-${slot._id}`}
+                        type="text"
+                        className="sr-only"
+                      />
+                      <input
+                        key={`img-${slot._id}`}
+                        id={`image-input-${slot._id}`}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
+                        className="sr-only"
+                        ref={(el) => {
+                          if (el) fileInputRefs.current[`image-${slot._id}`] = el;
+                        }}
+                      />
+                      <input
+                        key={`vid-${slot._id}`}
+                        id={`video-input-${slot._id}`}
+                        type="file"
+                        accept="video/*"
+                        onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
+                        className="sr-only"
+                        ref={(el) => {
+                          if (el) fileInputRefs.current[`video-${slot._id}`] = el;
+                        }}
+                      />
 
-                      {slot.media && slot.media.slice(0, 6).map((media) => (
-                        <div key={media._id} className="relative group">
-                          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
-                            {media.type === 'image' ? (
-                              <img 
-                                src={media.url} 
-                                alt="Media"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : media.type === 'video' ? (
-                              <video 
-                                src={media.url} 
-                                className="w-full h-full object-cover"
-                                muted
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                                <ImageIcon size={24} className="text-gray-400" />
+                      {/* Content Display Area */}
+                      <div className="flex-1 space-y-3 overflow-y-auto pb-3 max-h-64 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                        {texts.slice(0, 8).map((text) => (
+                          <div key={text._id} className="relative group bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-200 hover:shadow-sm transition-all duration-200 hover:border-slate-300">
+                            <div className="flex items-start gap-3 mb-2">
+                              <div className="bg-blue-100 p-2 rounded-full flex-shrink-0 mt-0.5">
+                                <MessageSquare className="text-blue-600" size={14} />
+                              </div>
+                              <p className="text-sm text-slate-700 flex-1 break-words line-clamp-2 leading-relaxed">
+                                {text.content}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-slate-500">
+                              <span>{new Date(text.createdAt).toLocaleDateString()}</span>
+                              {!slot.delivered && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => deleteText(slot._id, text._id)}
+                                  className="text-red-600 hover:bg-red-50 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-all"
+                                >
+                                  <Trash2 size={14} />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {media.slice(0, 8).map((item) => (
+                          <div key={item._id} className="relative group rounded-xl overflow-hidden border-2 border-slate-200 hover:border-slate-300 transition-all">
+                            <div className="aspect-video w-full bg-slate-100">
+                              {item.type === 'image' ? (
+                                <img 
+                                  src={item.url} 
+                                  alt="Uploaded media"
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : item.type === 'video' ? (
+                                <video 
+                                  src={item.url} 
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-slate-200">
+                                  <ImageIcon size={32} className="text-slate-400" />
+                                </div>
+                              )}
+                            </div>
+                            {!slot.delivered && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => deleteMedia(slot._id, item._id)}
+                                className="absolute top-2 right-2 bg-red-600/90 text-white hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-all h-7 w-7 p-0 backdrop-blur-sm"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            )}
+                            {item.filename && (
+                              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                {item.filename}
                               </div>
                             )}
                           </div>
-                          {!slot.delivered && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => deleteMedia(slot._id, media._id)}
-                              className="absolute top-1 right-1 bg-red-600 text-white hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                            >
-                              <Trash2 size={12} />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
+                        ))}
 
-                      {((slot.texts?.length || 0) + (slot.media?.length || 0)) > 12 && (
-                        <div className="h-16 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
-                          <div className="text-center text-xs text-gray-500">
-                            +{((slot.texts?.length || 0) + (slot.media?.length || 0)) - 12} more items
+                        {totalItems > 16 && (
+                          <div className="h-20 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center text-center">
+                            <div className="text-sm text-slate-500 font-medium">
+                              +{totalItems - 16} more items
+                            </div>
                           </div>
+                        )}
+                      </div>
+
+                      {/* Add Content Buttons */}
+                      {!slot.delivered && (
+                        <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-200 mt-4">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              const input = document.getElementById(`text-input-${slot._id}`);
+                              if (input) {
+                                input.focus();
+                                setNewText(prev => ({ ...prev, [slot._id]: '' }));
+                              }
+                              setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
+                            }}
+                            className="text-xs h-11 border-slate-200 hover:bg-slate-50"
+                          >
+                            <MessageSquare size={16} className="mr-2" /> Text
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => document.getElementById(`image-input-${slot._id}`)?.click()}
+                            className="text-xs h-11 border-slate-200 hover:bg-slate-50"
+                          >
+                            <ImageIcon size={16} className="mr-2" /> Photo
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => document.getElementById(`video-input-${slot._id}`)?.click()}
+                            className="text-xs h-11 border-slate-200 hover:bg-slate-50"
+                          >
+                            <VideoIcon size={16} className="mr-2" /> Video
+                          </Button>
                         </div>
                       )}
-                    </div>
-
-                    {/* Add Content Buttons */}
-                    {!slot.delivered && (
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => {
-                            setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                            setTimeout(() => {
-                              const textarea = document.getElementById(`text-input-${slot._id}`);
-                              if (textarea) {
-                                textarea.focus();
-                                setNewText({ ...newText, [slot._id]: '' });
-                              }
-                            }, 100);
-                          }}
-                          className="text-xs h-10"
-                        >
-                          <MessageSquare size={14} className="mr-1" /> Text
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => document.getElementById(`image-input-${slot._id}`)?.click()}
-                          className="text-xs h-10"
-                        >
-                          <ImageIcon size={14} className="mr-1" /> Image
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => document.getElementById(`video-input-${slot._id}`)?.click()}
-                          className="text-xs h-10"
-                        >
-                          <VideoIcon size={14} className="mr-1" /> Video
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })
           ) : (
             <motion.div 
               variants={itemVariants}
-              className="col-span-full flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-sm"
+              className="col-span-full flex flex-col items-center justify-center py-24 text-center bg-white rounded-2xl border-2 border-dashed border-slate-200 shadow-sm"
             >
-              <Shield className="w-24 h-24 text-gray-300 mb-6" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Legacy Slots</h3>
-              <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                Create your first legacy slot to store messages and memories for your loved ones.
+              <Shield className="w-24 h-24 text-slate-300 mb-6" />
+              <h3 className="text-2xl font-bold text-slate-900 mb-2">No Legacy Slots</h3>
+              <p className="text-slate-500 mb-8 max-w-md mx-auto leading-relaxed">
+                Create your first legacy slot to store messages and memories for your loved ones. They'll receive everything after 9 months of inactivity.
               </p>
               <Button 
                 onClick={() => setShowAddSlot(true)}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-12 h-12 shadow-lg shadow-rose-100"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-12 h-12 shadow-lg shadow-rose-100 text-lg"
               >
-                <Plus size={20} className="mr-2" /> Create First Legacy Slot
+                <Plus size={20} className="mr-3" /> Create First Legacy Slot
               </Button>
             </motion.div>
           )}
@@ -624,33 +698,61 @@ export default function DeathVault() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
               onClick={() => setViewSlotModal(null)}
             >
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl max-w-2xl max-h-[90vh] w-full overflow-hidden shadow-2xl"
-                onClick={e => e.stopPropagation()}
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 500 }}
+                className="bg-white rounded-3xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl border border-slate-200"
+                onClick={(e) => e.stopPropagation()}
               >
-                <div className="p-6 border-b border-gray-200">
+                <div className="p-8 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-gray-50">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-gray-900">{viewSlotModal.name}</h2>
+                    <div>
+                      <h2 className="text-3xl font-bold text-slate-900">{viewSlotModal.name}</h2>
+                      <p className="text-slate-600 mt-1">{viewSlotModal.recipientEmail}</p>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setViewSlotModal(null)}
-                      className="h-8 w-8 p-0"
+                      className="h-10 w-10 p-0 text-slate-500 hover:bg-slate-200 rounded-xl"
                     >
-                      <Trash2 size={16} />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </Button>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{viewSlotModal.recipientEmail}</p>
                 </div>
-                <div className="max-h-96 overflow-y-auto p-6">
-                  {/* Full content display would go here */}
-                  <p className="text-gray-500">Full content preview coming soon...</p>
+                <div className="max-h-96 overflow-y-auto p-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Messages</h3>
+                      {(viewSlotModal.texts || []).slice(0, 5).map((text) => (
+                        <div key={text._id} className="mb-4 p-4 bg-slate-50 rounded-xl">
+                          <p className="text-slate-700 leading-relaxed">{text.content}</p>
+                          <p className="text-xs text-slate-500 mt-2">{new Date(text.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">Media ({(viewSlotModal.media || []).length})</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {(viewSlotModal.media || []).slice(0, 4).map((media) => (
+                          <div key={media._id} className="aspect-square rounded-xl overflow-hidden border shadow-sm">
+                            {media.type === 'image' ? (
+                              <img src={media.url} alt="Media" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={media.url} className="w-full h-full object-cover" muted />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -662,30 +764,41 @@ export default function DeathVault() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="mt-16"
+          className="mt-20"
         >
-          <Card className="border-none shadow-sm bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden relative">
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-rose-500/10 rounded-full blur-3xl"></div>
-            <CardContent className="p-8 relative z-10">
-              <div className="flex flex-col lg:flex-row items-center gap-8">
-                <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center text-rose-400 flex-shrink-0">
-                  <Lock size={40} />
+          <Card className="border-none shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-gray-900 text-white overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-rose-500/5 via-transparent to-emerald-500/5"></div>
+            <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl"></div>
+            <CardContent className="p-8 md:p-12 relative z-10">
+              <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+                <div className="w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-rose-300 flex-shrink-0 shadow-2xl">
+                  <Lock className="w-12 h-12 md:w-14 md:h-14" />
                 </div>
                 <div className="flex-1 text-center lg:text-left">
-                  <h4 className="text-xl font-bold mb-2">Maximum Security Protocol</h4>
-                  <p className="text-slate-300 leading-relaxed">
-                    The Death Vault uses enterprise-grade encryption and multi-stage verification. Your legacy is protected until our system confirms prolonged inactivity.
+                  <h4 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    Enterprise-Grade Security
+                  </h4>
+                  <p className="text-slate-300 leading-relaxed text-lg max-w-2xl mx-auto lg:mx-0">
+                    Your legacy is protected with military-grade encryption and intelligent inactivity detection. 
+                    Messages unlock only after 9 months of confirmed inactivity.
                   </p>
                 </div>
-                <div className="flex flex-col gap-3 w-full lg:w-auto text-sm">
-                  <div className="flex items-center gap-2 font-medium text-emerald-400">
-                    <CheckCircle2 size={16} /> AES-256 Encryption
+                <div className="flex flex-col gap-4 w-full lg:w-auto text-sm lg:text-base">
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    AES-256 Encryption
                   </div>
-                  <div className="flex items-center gap-2 font-medium text-emerald-400">
-                    <CheckCircle2 size={16} /> 9-Month Inactivity Check
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    9-Month Inactivity Detection
                   </div>
-                  <div className="flex items-center gap-2 font-medium text-emerald-400">
-                    <CheckCircle2 size={16} /> Secure Email Delivery
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    Secure Email Delivery
+                  </div>
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    Zero-Knowledge Architecture
                   </div>
                 </div>
               </div>

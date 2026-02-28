@@ -419,9 +419,18 @@ export default function DeathVault() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {slots.length > 0 ? (
-            slots.map((slot) => (
-              <motion.div key={slot._id} variants={itemVariants}>
-                <Card className={`flex flex-col overflow-hidden h-[500px] ${slot.delivered ? 'ring-2 ring-emerald-200 bg-emerald-50/50' : ''}`}>
+            slots.map((slot) => {
+              const texts = slot.texts || [];
+              const media = slot.media || [];
+              const totalItems = texts.length + media.length;
+              
+              let cardHeight = 'h-138';
+              if (totalItems > 3) cardHeight = 'h-141';
+              if (totalItems > 6) cardHeight = 'h-163';
+              if (totalItems > 9) cardHeight = 'h-168';
+              
+              return (
+                <Card key={slot._id} className={`flex flex-col overflow-hidden ${cardHeight}`}>
                   <div className={`h-1 w-full ${slot.delivered ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                   <CardHeader className="flex-shrink-0 p-4 pb-2">
                     <div className="flex items-center justify-between mb-3">

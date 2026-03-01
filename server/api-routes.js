@@ -305,6 +305,59 @@ router.post('/vaults/:type/slots', verifyToken, async (req, res) => {
   }
 });
 
+// Get Death Vault rules acceptance status
+router.get('/vaults/death/rules-status', verifyToken, async (req, res) => {
+  try {
+    const db = await getDB();
+    const user = await db.collection('users').findOne({ 
+      email: req.user.email 
+    });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if user has accepted Death Vault rules
+    const rulesAccepted = user.deathVaultRulesAccepted || false;
+    
+    res.json({ success: true, rulesAccepted });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Accept Death Vault rules
+router.post('/vaults/death/accept-rules', verifyToken, async (req, res) => {
+  try {
+    const db = await getDB();
+    const user = await db.collection('users').findOne({ 
+      email: req.user.email 
+    });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Mark rules as accepted
+    await db.collection('users').updateOne(
+      { email: req.user.email },
+      { 
+        $set: { 
+          deathVaultRulesAccepted: true,
+          deathVaultRulesAcceptedAt: new Date()
+        }
+      }
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Death Vault rules accepted successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Delete slot
 router.delete('/slots/:slotId', verifyToken, async (req, res) => {
   try {

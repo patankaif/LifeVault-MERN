@@ -10,7 +10,8 @@ import {
   Heart, Shield, ArrowLeft, Plus, Trash2, 
   Mail, User, ChevronRight, Loader2, AlertCircle,
   CheckCircle2, Info, Lock, Clock, Users, Archive,
-  MessageSquare, ImageIcon, VideoIcon, Eye
+  MessageSquare, ImageIcon, VideoIcon, Eye, AlertTriangle,
+  Calendar, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -21,6 +22,8 @@ export default function DeathVault() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddSlot, setShowAddSlot] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [rulesAccepted, setRulesAccepted] = useState(false);
   const [newSlot, setNewSlot] = useState({
     name: '',
     recipientEmail: '',
@@ -49,6 +52,8 @@ export default function DeathVault() {
     try {
       setLoading(true);
       setError('');
+      
+      // Fetch slots
       const response = await authFetch('/api/vaults/death/slots');
       if (!response.ok) {
         const data = await response.json();
@@ -56,6 +61,18 @@ export default function DeathVault() {
       }
       const data = await response.json();
       setSlots(data.slots || []);
+      
+      // Fetch rules acceptance status
+      try {
+        const rulesResponse = await authFetch('/api/vaults/death/rules-status');
+        if (rulesResponse.ok) {
+          const rulesData = await rulesResponse.json();
+          setRulesAccepted(rulesData.rulesAccepted || false);
+        }
+      } catch (rulesErr) {
+        // If endpoint doesn't exist yet, assume rules not accepted
+        setRulesAccepted(false);
+      }
     } catch (err) {
       setError(err.message || 'Network error. Please try again.');
     } finally {
@@ -88,6 +105,13 @@ export default function DeathVault() {
 
   const handleAddSlot = async (e) => {
     e.preventDefault();
+    
+    // Check if rules have been accepted (only for first slot)
+    if (slots.length === 0 && !rulesAccepted) {
+      setShowRulesModal(true);
+      return;
+    }
+    
     if (slots.length >= 2) {
       setError('Maximum 2 slots allowed in Death Vault');
       return;
@@ -121,6 +145,28 @@ export default function DeathVault() {
       setError(err.message || 'Network error. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleRulesAcceptance = async () => {
+    try {
+      const response = await authFetch('/api/vaults/death/accept-rules', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setRulesAccepted(true);
+        setShowRulesModal(false);
+        // Proceed with slot creation after rules acceptance
+        handleAddSlot(new Event('submit'));
+      } else {
+        setError(data.message || 'Failed to accept rules');
+      }
+    } catch (err) {
+      setError(err.message || 'Network error. Please try again.');
     }
   };
 
@@ -393,8 +439,20 @@ export default function DeathVault() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-10">
-          <h1 className="text-3xl font-bold text-slate-900">Your Digital Legacy</h1>
-          <p className="text-slate-500 mt-2">Messages and memories to be delivered after 9 months of inactivity.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Your Digital Legacy</h1>
+              <p className="text-slate-500 mt-2">Messages and memories to be delivered after 9 months of inactivity.</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowRulesModal(true)}
+              className="flex items-center gap-2 border-rose-200 text-rose-600 hover:bg-rose-50"
+            >
+              <FileText size={16} />
+              Death Vault Rules
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -785,6 +843,180 @@ export default function DeathVault() {
           )}
         </motion.div>
       </main>
+
+      {/* Death Vault Rules Modal */}
+      <AnimatePresence>
+        {showRulesModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+            onClick={() => setShowRulesModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 500 }}
+              className="bg-white rounded-3xl max-w-4xl max-h-[90vh] w-full overflow-hidden shadow-2xl border border-slate-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-8 border-b border-slate-200 bg-gradient-to-r from-rose-50 to-red-50">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                    <Shield className="text-rose-600" size={32} />
+                    Death Vault Rules & Conditions
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowRulesModal(false)}
+                    className="h-10 w-10 p-0 text-slate-500 hover:bg-slate-200 rounded-xl"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </Button>
+                </div>
+                <p className="text-slate-600 mt-2">Please read and accept these important rules before creating your legacy slots</p>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto p-8">
+                <div className="space-y-6">
+                  {/* Core Concept */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-blue-900 mb-3 flex items-center gap-2">
+                      <Clock size={20} /> Core Concept
+                    </h3>
+                    <p className="text-blue-800 leading-relaxed">
+                      Death Vault is your legacy storage system. Messages and memories are only delivered after <strong>9 months of confirmed inactivity</strong>. 
+                      This ensures your final thoughts reach loved ones when you can no longer communicate yourself.
+                    </p>
+                  </div>
+
+                  {/* Inactivity Detection */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-amber-900 mb-3 flex items-center gap-2">
+                      <AlertCircle size={20} /> Inactivity Detection
+                    </h3>
+                    <ul className="text-amber-800 space-y-2">
+                      <li>• <strong>9-month waiting period</strong> after your last login/activity</li>
+                      <li>• <strong>Automatic detection</strong> through system monitoring</li>
+                      <li>• <strong>No manual activation</strong> - completely automated</li>
+                      <li>• <strong>Activity resets timer</strong> - Any login counts as activity</li>
+                    </ul>
+                  </div>
+
+                  {/* Confirmation Email */}
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-green-900 mb-3 flex items-center gap-2">
+                      <Mail size={20} /> Confirmation Email System
+                    </h3>
+                    <ul className="text-green-800 space-y-2">
+                      <li>• <strong>15 days before delivery</strong> (after ~8.5 months of inactivity)</li>
+                      <li>• <strong>System asks "Are you still alive?"</strong> via email</li>
+                      <li>• <strong>15-day response window</strong> to confirm you're active</li>
+                      <li>• <strong>If no response → Data delivery proceeds</strong></li>
+                      <li>• <strong>If you respond → Timer resets to 9 months</strong></li>
+                    </ul>
+                  </div>
+
+                  {/* Content Rules */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-purple-900 mb-3 flex items-center gap-2">
+                      <MessageSquare size={20} /> Content Storage Rules
+                    </h3>
+                    <ul className="text-purple-800 space-y-2">
+                      <li>• <strong>Messages (texts)</strong>: Final thoughts, memories, goodbyes</li>
+                      <li>• <strong>Media</strong>: Photos and videos for your loved ones</li>
+                      <li>• <strong>Organized by slots</strong>: Different recipients for different content</li>
+                      <li>• <strong>File size limit</strong>: 10MB per media file</li>
+                      <li>• <strong>Supported formats</strong>: JPEG, PNG, GIF, WebP, MP4, QuickTime</li>
+                    </ul>
+                  </div>
+
+                  {/* Security Features */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2">
+                      <Lock size={20} /> Security Features
+                    </h3>
+                    <ul className="text-slate-800 space-y-2">
+                      <li>• <strong>AES-256 encryption</strong> for all content</li>
+                      <li>• <strong>Zero-knowledge architecture</strong></li>
+                      <li>• <strong>Secure email delivery</strong></li>
+                      <li>• <strong>Access tokens</strong> with expiration</li>
+                      <li>• <strong>Backup email services</strong> if primary fails</li>
+                    </ul>
+                  </div>
+
+                  {/* Important Warnings */}
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-red-900 mb-3 flex items-center gap-2">
+                      <AlertTriangle size={20} /> Important Warnings
+                    </h3>
+                    <ul className="text-red-800 space-y-2">
+                      <li>• <strong>NOT a will replacement</strong> - consult lawyers for legal documents</li>
+                      <li>• <strong>NOT emergency messaging</strong> - 9-month delay is significant</li>
+                      <li>• <strong>NOT guaranteed delivery</strong> - depends on email service reliability</li>
+                      <li>• <strong>Test email addresses</strong> before finalizing recipients</li>
+                      <li>• <strong>Keep content updated</strong> while you're active</li>
+                    </ul>
+                  </div>
+
+                  {/* Lifecycle */}
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-6">
+                    <h3 className="text-xl font-bold text-indigo-900 mb-3 flex items-center gap-2">
+                      <Calendar size={20} /> Process Lifecycle
+                    </h3>
+                    <div className="text-indigo-800 space-y-2">
+                      <div><strong>1. Create Slot</strong> → Add recipient email</div>
+                      <div><strong>2. Add Content</strong> → Upload messages and media</div>
+                      <div><strong>3. Stay Active</strong> → Regular login keeps timer reset</div>
+                      <div><strong>4. Inactivity Period</strong> → 9 months without activity</div>
+                      <div><strong>5. Confirmation Email</strong> → "Are you still alive?" (15 days)</div>
+                      <div><strong>6. Final Delivery</strong> → Email sent to recipient</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="rules-accept"
+                      checked={rulesAccepted}
+                      onChange={(e) => setRulesAccepted(e.target.checked)}
+                      className="w-5 h-5 text-rose-600 border-rose-300 rounded focus:ring-rose-500"
+                    />
+                    <label htmlFor="rules-accept" className="text-slate-700 font-medium">
+                      I have read, understood, and accept all Death Vault rules and conditions
+                    </label>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowRulesModal(false)}
+                      className="border-slate-300 text-slate-600 hover:bg-slate-100"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleRulesAcceptance}
+                      disabled={!rulesAccepted}
+                      className="bg-rose-600 hover:bg-rose-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Accept & Continue
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

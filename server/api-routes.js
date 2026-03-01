@@ -161,7 +161,7 @@ router.post('/auth/verify-delete-otp', async (req, res) => {
 });
 
 // Delete account permanently
-router.delete('/auth/delete-account', async (req, res) => {
+router.post('/auth/delete-account', async (req, res) => {
   try {
     console.log('[Delete Account] Request body:', req.body);
     console.log('[Delete Account] Headers:', req.headers);

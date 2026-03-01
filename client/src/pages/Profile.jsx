@@ -230,7 +230,7 @@ export default function Profile() {
       console.log('[Delete Account] Sending request:', requestBody);
       
       const response = await authFetch('/api/auth/delete-account', {
-        method: 'DELETE',
+        method: 'POST',
         body: JSON.stringify(requestBody)
       });
       

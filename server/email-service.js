@@ -200,6 +200,8 @@ export async function testEmailService() {
   } catch (error) {
     console.error('[Email Service] Test email failed:', error);
     return { success: false, error: error.message };
+  }
+}
 
 export async function sendScheduledSlotNotification(recipientEmail, slotName, accessLink) {
   try {

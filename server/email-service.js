@@ -200,13 +200,24 @@ export async function testEmailService() {
   } catch (error) {
     console.error('[Email Service] Test email failed:', error);
     return { success: false, error: error.message };
-  }
-}
 
 export async function sendScheduledSlotNotification(recipientEmail, slotName, accessLink) {
   try {
+    console.log('[Email Service] sendScheduledSlotNotification called with:', {
+      recipientEmail,
+      slotName,
+      accessLink,
+      transporterExists: !!transporter,
+      fallbackExists: !!fallbackTransporter,
+      smtpConfig: {
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        user: process.env.SMTP_USER,
+        hasPassword: !!process.env.SMTP_PASSWORD
+      }
+    });
 
-    // ✅ EMAIL VALIDATION ADDED HERE
+    // EMAIL VALIDATION ADDED HERE
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!recipientEmail || !emailRegex.test(recipientEmail)) {
       console.log('[Email Service] Invalid recipient email:', recipientEmail);
@@ -217,11 +228,7 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
       await initEmailService();
     }
 
-    console.log('[Email Service] sendScheduledSlotNotification called with:', {
-      recipientEmail,
-      slotName,
-      accessLink
-    });
+    console.log('[Email Service] Using transporter:', transporter ? 'SMTP' : 'Fallback');
 
     // Convert shared-vault link to schedule-slot link
     const scheduleLink = accessLink.replace('/shared-vault/', '/schedule-slot/');
@@ -242,26 +249,40 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
       `,
     };
 
+    console.log('[Email Service] Attempting to send email with options:', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      hasHtml: !!mailOptions.html
+    });
+
     const result = await transporter.sendMail(mailOptions);
-    console.log('[Email Service] Notification sent to', recipientEmail);
+    console.log('[Email Service] SUCCESS: Notification sent to', recipientEmail, 'Result:', result);
     return result;
 
   } catch (error) {
-    console.error('[Email Service] Failed to send notification:', error);
+    console.error('[Email Service] FAILED: Failed to send notification:', {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+      recipientEmail,
+      slotName
+    });
     
     // Try fallback transporter if primary fails
     if (fallbackTransporter && !error.message.includes('fallback')) {
       console.log('[Email Service] Trying fallback transporter...');
       try {
         const fallbackResult = await fallbackTransporter.sendMail(mailOptions);
-        console.log('[Email Service] Notification sent via fallback to', recipientEmail);
+        console.log('[Email Service] FALLBACK SUCCESS: Notification sent via fallback to', recipientEmail, 'Result:', fallbackResult);
         return fallbackResult;
       } catch (fallbackError) {
-        console.error('[Email Service] Fallback also failed:', fallbackError);
+        console.error('[Email Service] FALLBACK FAILED:', fallbackError);
+        throw fallbackError;
       }
+    } else {
+      throw error;
     }
-    
-    throw error;
   }
 }
 

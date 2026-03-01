@@ -480,7 +480,7 @@ export default function DeathVault() {
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
         >
           {slots.length === 0 ? (
             <Card className="md:col-span-2 lg:col-span-3 border-0 bg-gradient-to-br from-slate-50 to-rose-50 shadow-xl">
@@ -523,214 +523,263 @@ export default function DeathVault() {
               const media = slot.media || [];
               const totalItems = texts.length + media.length;
               
-              let cardHeight = 'h-[420px]';
-              if (totalItems > 3) cardHeight = 'h-[440px]';
-              if (totalItems > 6) cardHeight = 'h-[500px]';
-              if (totalItems > 9) cardHeight = 'h-[520px]';
+              let cardHeight = 'h-138';
+              if (totalItems > 3) cardHeight = 'h-141';
+              if (totalItems > 6) cardHeight = 'h-163';
+              if (totalItems > 9) cardHeight = 'h-168';
               
               return (
                 <motion.div key={slot._id} variants={itemVariants}>
-                  <Card className={`${cardHeight} flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white`}>
+                  <Card className={`flex flex-col overflow-hidden ${cardHeight}`}>
+                    {/* HEADER */}
                     <CardHeader className="flex flex-col items-center justify-center text-center pb-2 flex-shrink-0">
-                      <div className="relative w-full">
-                        {editingSlot === slot._id ? (
-                          <Input 
-                            value={editingSlotName}
-                            onChange={e => setEditingSlotName(e.target.value)}
-                            onBlur={() => updateSlotName(slot._id)}
-                            onKeyDown={e => e.key === 'Enter' && updateSlotName(slot._id)}
-                            className="text-xl font-bold text-center mb-2 border-2 border-blue-500"
-                            autoFocus
-                          />
-                        ) : (
-                          <CardTitle 
-                            className={`text-xl font-bold text-center mb-2 ${slot.delivered ? '' : 'cursor-pointer hover:text-blue-600'}`} 
-                            onClick={() => {
-                              if (!slot.delivered) {
-                                setEditingSlot(slot._id);
-                                setEditingSlotName(slot.name);
-                              }
-                            }}
-                          >
-                            {slot.name}
-                          </CardTitle>
-                        )}
-                        <div className="flex justify-center gap-2">
-                          <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
-                            <Eye size={16} />
-                          </Button>
-                          {!slot.delivered && (
-                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteSlot(slot._id)}>
-                              <Trash2 size={16} />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
-                      
-                      {slot.recipientEmail && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 w-full">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <Mail size={16} className="text-blue-600" />
-                              <div>
-                                <p className="text-sm font-semibold text-blue-800">Recipient:</p>
-                                <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </CardHeader>
-                    
-                    <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
-                      {/* Hidden file inputs */}
-                      <input
-                        key={`text-${slot._id}`}
-                        id={`text-input-${slot._id}`}
-                        type="text"
-                        className="sr-only"
-                      />
-                      <input
-                        key={`img-${slot._id}`}
-                        id={`image-input-${slot._id}`}
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
-                        className="sr-only"
-                        ref={(el) => {
-                          if (el) fileInputRefs.current[`image-${slot._id}`] = el;
-                        }}
-                      />
-                      <input
-                        key={`vid-${slot._id}`}
-                        id={`video-input-${slot._id}`}
-                        type="file"
-                        accept="video/*"
-                        onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
-                        className="sr-only"
-                        ref={(el) => {
-                          if (el) fileInputRefs.current[`video-${slot._id}`] = el;
-                        }}
-                      />
+      <div className="relative w-full">
 
-                      {/* Content Display Area */}
-                      <div className="flex-1 space-y-3 overflow-y-auto pb-3 max-h-64 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
-                        {texts.slice(0, 8).map((text) => (
-                          <div key={text._id} className="relative group bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-200 hover:shadow-sm transition-all duration-200 hover:border-slate-300">
-                            <div className="flex items-start gap-3 mb-2">
-                              <div className="bg-blue-100 p-2 rounded-full flex-shrink-0 mt-0.5">
-                                <MessageSquare className="text-blue-600" size={14} />
-                              </div>
-                              <p className="text-sm text-slate-700 flex-1 break-words line-clamp-2 leading-relaxed">
-                                {text.content}
-                              </p>
-                            </div>
-                            <div className="flex items-center justify-between text-xs text-slate-500">
-                              <span>{new Date(text.createdAt).toLocaleDateString()}</span>
-                              {!slot.delivered && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => deleteText(slot._id, text._id)}
-                                  className="text-red-600 hover:bg-red-50 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-all"
-                                >
-                                  <Trash2 size={14} />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+        {/* Editable Title */}
+        {editingSlot === slot._id ? (
+          <Input
+            value={editingSlotName}
+            onChange={(e) => setEditingSlotName(e.target.value)}
+            onBlur={() => updateSlotName(slot._id)}
+            onKeyDown={(e) => e.key === 'Enter' && updateSlotName(slot._id)}
+            className="text-xl font-bold text-center border-2 border-rose-500"
+            autoFocus
+          />
+        ) : (
+          <CardTitle
+            className={`text-xl font-bold text-center ${
+              slot.delivered ? '' : 'cursor-pointer hover:text-rose-600'
+            }`}
+            onClick={() => {
+              if (!slot.delivered) {
+                setEditingSlot(slot._id);
+                setEditingSlotName(slot.name);
+              }
+            }}
+          >
+            {slot.name}
+          </CardTitle>
+        )}
 
-                        {media.slice(0, 8).map((item) => (
-                          <div key={item._id} className="relative group rounded-xl overflow-hidden border-2 border-slate-200 hover:border-slate-300 transition-all">
-                            <div className="aspect-video w-full bg-slate-100">
-                              {item.type === 'image' ? (
-                                <img 
-                                  src={item.url} 
-                                  alt="Uploaded media"
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : item.type === 'video' ? (
-                                <video 
-                                  src={item.url} 
-                                  className="w-full h-full object-cover"
-                                  muted
-                                  preload="metadata"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                                  <ImageIcon size={32} className="text-slate-400" />
-                                </div>
-                              )}
-                            </div>
-                            {!slot.delivered && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => deleteMedia(slot._id, item._id)}
-                                className="absolute top-2 right-2 bg-red-600/90 text-white hover:bg-red-700 opacity-0 group-hover:opacity-100 transition-all h-7 w-7 p-0 backdrop-blur-sm"
-                              >
-                                <Trash2 size={14} />
-                              </Button>
-                            )}
-                            {item.filename && (
-                              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                {item.filename}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+        {/* Top Right Buttons */}
+        <div className="absolute top-0 right-0 flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-blue-600"
+            onClick={() => setViewSlotModal(slot)}
+          >
+            <Eye size={16} />
+          </Button>
 
-                        {totalItems > 16 && (
-                          <div className="h-20 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center text-center">
-                            <div className="text-sm text-slate-500 font-medium">
-                              +{totalItems - 16} more items
-                            </div>
-                          </div>
-                        )}
-                      </div>
+          {!slot.delivered && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-red-600"
+              onClick={() => handleDeleteSlot(slot._id)}
+            >
+              <Trash2 size={16} />
+            </Button>
+          )}
+        </div>
+      </div>
 
-                      {/* Add Content Buttons */}
-                      {!slot.delivered && (
-                        <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-200 mt-4">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => {
-                              const input = document.getElementById(`text-input-${slot._id}`);
-                              if (input) {
-                                input.focus();
-                                setNewText(prev => ({ ...prev, [slot._id]: '' }));
-                              }
-                              setExpandedSlot(expandedSlot === slot._id ? null : slot._id);
-                            }}
-                            className="text-xs h-11 border-slate-200 hover:bg-slate-50"
-                          >
-                            <MessageSquare size={16} className="mr-2" /> Text
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => document.getElementById(`image-input-${slot._id}`)?.click()}
-                            className="text-xs h-11 border-slate-200 hover:bg-slate-50"
-                          >
-                            <ImageIcon size={16} className="mr-2" /> Photo
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => document.getElementById(`video-input-${slot._id}`)?.click()}
-                            className="text-xs h-11 border-slate-200 hover:bg-slate-50"
-                          >
-                            <VideoIcon size={16} className="mr-2" /> Video
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
+      <CardDescription className="text-sm mb-3">
+        {slot.media?.length || 0} media, {slot.texts?.length || 0} texts
+      </CardDescription>
+
+      {/* Recipient Block (FutureVault style but adapted) */}
+      {slot.recipientEmail && (
+        <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-3 w-full">
+          <div className="flex items-center gap-2 justify-center">
+            <Mail size={16} className="text-rose-600" />
+            <div>
+              <p className="text-xs font-semibold text-rose-700">
+                Legacy Recipient
+              </p>
+              <p className="text-lg font-bold text-rose-900">
+                {slot.recipientEmail}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Buttons Row */}
+      {!slot.delivered && (
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setExpandedSlot(
+                expandedSlot === slot._id ? null : slot._id
+              )
+            }
+            className="text-xs h-9"
+          >
+            <MessageSquare size={14} className="mr-1" /> Text
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              document
+                .getElementById(`image-input-${slot._id}`)
+                ?.click()
+            }
+            className="text-xs h-9"
+          >
+            <ImageIcon size={14} className="mr-1" /> Image
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              document
+                .getElementById(`video-input-${slot._id}`)
+                ?.click()
+            }
+            className="text-xs h-9"
+          >
+            <VideoIcon size={14} className="mr-1" /> Video
+          </Button>
+        </div>
+      )}
+    </CardHeader>
+
+    {/* CONTENT AREA */}
+    <CardContent className="flex-1 flex flex-col overflow-hidden p-4">
+
+      {/* Hidden Inputs */}
+      <input
+        id={`image-input-${slot._id}`}
+        type="file"
+        accept="image/*"
+        onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
+        className="hidden"
+      />
+
+      <input
+        id={`video-input-${slot._id}`}
+        type="file"
+        accept="video/*"
+        onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
+        className="hidden"
+      />
+
+      {/* Content Grid */}
+      <div className="flex-1 space-y-3 overflow-y-auto">
+        {slot.texts?.length || slot.media?.length ? (
+          <div className="grid grid-cols-3 gap-2">
+            
+            {/* TEXTS */}
+            {slot.texts?.slice(0, 9).map((t) => (
+              <div
+                key={t._id}
+                className="relative group bg-gradient-to-br from-gray-50 to-gray-100 p-3 rounded-lg border h-24"
+              >
+                <p className="text-xs line-clamp-3 break-all">
+                  {t.content}
+                </p>
+
+                {!slot.delivered && (
+                  <button
+                    onClick={() =>
+                      deleteText(slot._id, t._id)
+                    }
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={10} className="text-red-500" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* MEDIA */}
+            {slot.media?.slice(0, 9).map((m) => (
+              <div
+                key={m._id}
+                className="relative group h-24 rounded-lg overflow-hidden border"
+              >
+                {m.type === 'image' ? (
+                  <img
+                    src={m.url}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <video
+                    src={m.url}
+                    className="w-full h-full object-cover"
+                    muted
+                  />
+                )}
+
+                {!slot.delivered && (
+                  <button
+                    onClick={() =>
+                      deleteMedia(slot._id, m._id)
+                    }
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={10} className="text-red-500" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Empty State (Future Style) */
+          <div className="text-center py-10">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <MessageSquare
+                size={24}
+                className="text-gray-400"
+              />
+            </div>
+            <p className="text-gray-400 text-sm">
+              No content yet
+            </p>
+            <p className="text-gray-400 text-xs">
+              Add memories for your legacy
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Expand Text Input */}
+      {expandedSlot === slot._id && !slot.delivered && (
+        <div className="mt-3 border-t pt-3 flex gap-2">
+          <Input
+            placeholder="Add a final message..."
+            value={newText[slot._id] || ''}
+            onChange={(e) =>
+              setNewText({
+                ...newText,
+                [slot._id]: e.target.value,
+              })
+            }
+            onKeyDown={(e) =>
+              e.key === 'Enter' &&
+              handleAddText(slot._id)
+            }
+          />
+          <Button
+            size="sm"
+            onClick={() =>
+              handleAddText(slot._id)
+            }
+          >
+            Add
+          </Button>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+</motion.div>
               );
             })
           )}

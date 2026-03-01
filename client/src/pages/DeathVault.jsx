@@ -63,6 +63,29 @@ export default function DeathVault() {
     }
   };
 
+  const updateSlotName = async (slotId) => {
+    if (!editingSlotName.trim()) return;
+    try {
+      const response = await authFetch(`/api/slots/${slotId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingSlotName.trim(), vaultType: 'death' }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSlots(prev => prev.map(slot => 
+          slot._id === slotId ? { ...slot, name: editingSlotName.trim() } : slot
+        ));
+        setEditingSlot(null);
+        setEditingSlotName('');
+      } else {
+        setError(data.message || 'Failed to update slot name');
+      }
+    } catch (err) {
+      setError(err.message || 'Network error. Please try again.');
+    }
+  };
+
   const handleAddSlot = async (e) => {
     e.preventDefault();
     if (slots.length >= 2) {
@@ -210,7 +233,6 @@ export default function DeathVault() {
   const addMedia = async (slotId, file) => {
     if (!file) return;
     
-    // File size limit: 10MB
     if (file.size > 10 * 1024 * 1024) {
       setError('File too large. Maximum size is 10MB.');
       return;
@@ -460,7 +482,42 @@ export default function DeathVault() {
           animate="visible"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
-          {slots.length > 0 ? (
+          {slots.length === 0 ? (
+            <Card className="md:col-span-2 lg:col-span-3 border-0 bg-gradient-to-br from-slate-50 to-rose-50 shadow-xl">
+              <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-rose-300 flex-shrink-0 shadow-2xl mb-6">
+                  <Lock className="w-12 h-12 md:w-14 md:h-14" />
+                </div>
+                <div className="flex-1 text-center lg:text-left">
+                  <h4 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    Enterprise-Grade Security
+                  </h4>
+                  <p className="text-slate-300 leading-relaxed text-lg max-w-2xl mx-auto lg:mx-0">
+                    Your legacy is protected with military-grade encryption and intelligent inactivity detection. 
+                    Messages unlock only after 9 months of confirmed inactivity.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-4 w-full lg:w-auto text-sm lg:text-base mt-8">
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    AES-256 Encryption
+                  </div>
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    9-Month Inactivity Detection
+                  </div>
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    Secure Email Delivery
+                  </div>
+                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
+                    <CheckCircle2 size={20} />
+                    Zero-Knowledge Architecture
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
             slots.map((slot) => {
               const texts = slot.texts || [];
               const media = slot.media || [];
@@ -472,58 +529,59 @@ export default function DeathVault() {
               if (totalItems > 9) cardHeight = 'h-[520px]';
               
               return (
-                <Card className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white">
-                <CardHeader className="flex flex-col items-center justify-center text-center pb-2 flex-shrink-0">
-                  <div className="relative w-full">
-                    {editingSlot === slot._id ? (
-                      <Input 
-                        value={editingSlotName}
-                        onChange={e => setEditingSlotName(e.target.value)}
-                        onBlur={() => updateSlotName(slot._id)}
-                        onKeyDown={e => e.key === 'Enter' && updateSlotName(slot._id)}
-                        className="text-xl font-bold text-center mb-2 border-2 border-blue-500"
-                        autoFocus
-                      />
-                    ) : (
-                      <CardTitle 
-                        className={`text-xl font-bold text-center mb-2 ${slot.delivered ? '' : 'cursor-pointer hover:text-blue-600'}`} 
-                        onClick={() => {
-                          if (!slot.delivered) {
-                            setEditingSlot(slot._id);
-                            setEditingSlotName(slot.name);
-                          }
-                        }}
-                      >
-                        {slot.name}
-                      </CardTitle>
-                    )}
-                    <div className="flex justify-center gap-2">
-                      <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
-                        <Eye size={16} />
-                      </Button>
-                      {!slot.delivered && (
-                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteSlot(slot._id)}>
-                          <Trash2 size={16} />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
-                  
-                  {/* Scheduled Email Display */}
-                  {slot.recipientEmail && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Mail size={16} className="text-blue-600" />
-                          <div>
-                            <p className="text-sm font-semibold text-blue-800">Recipient:</p>
-                            <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
-                          </div>
+                <motion.div key={slot._id} variants={itemVariants}>
+                  <Card className={`${cardHeight} flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white`}>
+                    <CardHeader className="flex flex-col items-center justify-center text-center pb-2 flex-shrink-0">
+                      <div className="relative w-full">
+                        {editingSlot === slot._id ? (
+                          <Input 
+                            value={editingSlotName}
+                            onChange={e => setEditingSlotName(e.target.value)}
+                            onBlur={() => updateSlotName(slot._id)}
+                            onKeyDown={e => e.key === 'Enter' && updateSlotName(slot._id)}
+                            className="text-xl font-bold text-center mb-2 border-2 border-blue-500"
+                            autoFocus
+                          />
+                        ) : (
+                          <CardTitle 
+                            className={`text-xl font-bold text-center mb-2 ${slot.delivered ? '' : 'cursor-pointer hover:text-blue-600'}`} 
+                            onClick={() => {
+                              if (!slot.delivered) {
+                                setEditingSlot(slot._id);
+                                setEditingSlotName(slot.name);
+                              }
+                            }}
+                          >
+                            {slot.name}
+                          </CardTitle>
+                        )}
+                        <div className="flex justify-center gap-2">
+                          <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setViewSlotModal(slot)}>
+                            <Eye size={16} />
+                          </Button>
+                          {!slot.delivered && (
+                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDeleteSlot(slot._id)}>
+                              <Trash2 size={16} />
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                      <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
+                      
+                      {slot.recipientEmail && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3 w-full">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Mail size={16} className="text-blue-600" />
+                              <div>
+                                <p className="text-sm font-semibold text-blue-800">Recipient:</p>
+                                <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardHeader>
                     
                     <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
                       {/* Hidden file inputs */}
@@ -666,115 +724,16 @@ export default function DeathVault() {
                             onClick={() => document.getElementById(`video-input-${slot._id}`)?.click()}
                             className="text-xs h-11 border-slate-200 hover:bg-slate-50"
                           >
+                            <VideoIcon size={16} className="mr-2" /> Video
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })
           )}
-        </div>
-      </div>
-      <CardDescription className="text-sm mb-3">{slot.media?.length || 0} media, {slot.texts?.length || 0} texts</CardDescription>
-      
-      {/* Scheduled Email Display */}
-      {slot.recipientEmail && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Mail size={16} className="text-blue-600" />
-              <div>
-                <p className="text-sm font-semibold text-blue-800">Recipient:</p>
-                <p className="text-lg font-bold text-blue-900">{slot.recipientEmail}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-        
-        <CardContent className="flex-1 p-4 flex flex-col overflow-hidden">
-          {/* Hidden file inputs */}
-          <input
-            key={`text-${slot._id}`}
-            id={`text-input-${slot._id}`}
-            type="text"
-            className="sr-only"
-          />
-          <input
-            key={`img-${slot._id}`}
-            id={`image-input-${slot._id}`}
-            type="file"
-            accept="image/*"
-            onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
-            className="sr-only"
-            ref={(el) => {
-              if (el) fileInputRefs.current[`image-${slot._id}`] = el;
-            }}
-          />
-          <input
-            key={`vid-${slot._id}`}
-            id={`video-input-${slot._id}`}
-            type="file"
-            accept="video/*"
-            onChange={(e) => addMedia(slot._id, e.target.files?.[0])}
-            className="sr-only"
-            ref={(el) => {
-              if (el) fileInputRefs.current[`video-${slot._id}`] = el;
-            }}
-          />
-
-          {/* Content Display Area */}
-          <div className="flex-1 space-y-3 overflow-y-auto pb-3 max-h-64 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
-            {texts.slice(0, 8).map((text) => (
-              <div key={text._id} className="relative group bg-gradient-to-r from-slate-50 to-gray-50 p-4 rounded-xl border border-slate-200 hover:shadow-sm transition-all duration-200 hover:border-slate-300">
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="bg-blue-100 p-2 rounded-full flex-shrink-0 mt-0.5">
-                    <MessageSquare className="text-blue-600" size={14} />
-                  </div>
-                  <p className="text-sm text-slate-700 flex-1 break-words line-clamp-2 leading-relaxed">
-                    {text.content}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{new Date(text.createdAt).toLocaleDateString()}</span>
-                  {!slot.delivered && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => deleteText(slot._id, text._id)}
-                      className="text-red-600 hover:bg-red-50 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  )}
-                </div>
-                <div className="w-24 h-24 md:w-28 md:h-28 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center text-rose-300 flex-shrink-0 shadow-2xl">
-                  <Lock className="w-12 h-12 md:w-14 md:h-14" />
-                </div>
-                <div className="flex-1 text-center lg:text-left">
-                  <h4 className="text-2xl md:text-3xl font-bold mb-4 bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
-                    Enterprise-Grade Security
-                  </h4>
-                  <p className="text-slate-300 leading-relaxed text-lg max-w-2xl mx-auto lg:mx-0">
-                    Your legacy is protected with military-grade encryption and intelligent inactivity detection. 
-                    Messages unlock only after 9 months of confirmed inactivity.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-4 w-full lg:w-auto text-sm lg:text-base">
-                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
-                    <CheckCircle2 size={20} />
-                    AES-256 Encryption
-                  </div>
-                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
-                    <CheckCircle2 size={20} />
-                    9-Month Inactivity Detection
-                  </div>
-                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
-                    <CheckCircle2 size={20} />
-                    Secure Email Delivery
-                  </div>
-                  <div className="flex items-center gap-3 font-semibold text-emerald-300 bg-emerald-500/10 p-3 rounded-xl backdrop-blur-sm">
-                    <CheckCircle2 size={20} />
-                    Zero-Knowledge Architecture
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </motion.div>
       </main>
     </div>

@@ -20,7 +20,7 @@ export async function getVault(userId, vaultType) {
   }
 }
 
-export async function createSlot(userId, vaultId, slotName, parentSlotId = null) {
+export async function createSlot(userId, vaultId, slotName, parentSlotId = null, recipientEmail = null) {
   try {
     const db = await getDB();
 
@@ -41,6 +41,7 @@ export async function createSlot(userId, vaultId, slotName, parentSlotId = null)
       userId,
       name: slotName,
       parentSlotId,
+      recipientEmail,
       media: [],
       texts: [],
       scheduledEmails: [],

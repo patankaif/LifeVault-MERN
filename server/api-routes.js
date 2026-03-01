@@ -282,7 +282,7 @@ router.get('/slots/:slotId/children', verifyToken, async (req, res) => {
 router.post('/vaults/:type/slots', verifyToken, async (req, res) => {
   try {
     const { type } = req.params;
-    const { slotName, parentSlotId } = req.body;
+    const { slotName, parentSlotId, recipientEmail } = req.body;
 
     if (!slotName) {
       return res.status(400).json({ success: false, message: 'Slot name is required' });
@@ -298,7 +298,7 @@ router.post('/vaults/:type/slots', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Vault not found' });
     }
 
-    const result = await vaultUtils.createSlot(req.user.userId, vault._id, slotName, parentSlotId || null);
+    const result = await vaultUtils.createSlot(req.user.userId, vault._id, slotName, parentSlotId || null, recipientEmail || null);
     res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

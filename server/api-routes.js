@@ -163,13 +163,19 @@ router.post('/auth/verify-delete-otp', async (req, res) => {
 // Delete account permanently
 router.delete('/auth/delete-account', async (req, res) => {
   try {
+    console.log('[Delete Account] Request body:', req.body);
+    console.log('[Delete Account] Headers:', req.headers);
+    
     const { email, otp } = req.body;
     if (!email || !otp) {
+      console.log('[Delete Account] Missing email or OTP:', { email, otp });
       return res.status(400).json({ success: false, message: 'Email and OTP are required' });
     }
 
+    console.log('[Delete Account] Verifying OTP for:', email);
     // Verify OTP first
     const otpResult = await authUtils.verifyOTP(email, otp, 'delete-account');
+    console.log('[Delete Account] OTP result:', otpResult);
     if (!otpResult.success) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }

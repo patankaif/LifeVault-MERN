@@ -223,19 +223,24 @@ export async function scheduleSlot(slotId, recipientEmail, scheduledDate, vaultT
       } else {
         // Check if it's a datetime-local string (YYYY-MM-DDTHH:MM) without timezone
         if (typeof scheduledDate === 'string' && scheduledDate.includes('T') && !scheduledDate.includes('Z') && !scheduledDate.includes('+')) {
-          // This is a local datetime from frontend, treat it as local time
-          // Create a date object from the local datetime string
-          const localDate = new Date(scheduledDate + ':00'); // Add seconds
+          // This is a local datetime from frontend (datetime-local input)
+          // The datetime-local input gives us YYYY-MM-DDTHH:MM in user's local timezone
+          // We need to convert this to UTC for storage
           
-          // Get the timezone offset in minutes and convert to milliseconds
-          const timezoneOffset = localDate.getTimezoneOffset() * 60000;
+          // Parse the local datetime string
+          const [datePart, timePart] = scheduledDate.split('T');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hours, minutes] = timePart.split(':').map(Number);
           
-          // Convert local time to UTC by subtracting the timezone offset
-          parsedDate = new Date(localDate.getTime() - timezoneOffset);
+          // Create a date object assuming the input is in the user's local timezone
+          // The Date constructor interprets this as local time
+          const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
           
-          // Show IST time for clarity
-          const istTime = new Date(parsedDate.getTime() + (5.5 * 60 * 60 * 1000));
-          console.log(`[Vault] Timezone conversion: Local ${scheduledDate} -> UTC ${parsedDate.toISOString()} -> IST ${istTime.toISOString().replace('Z', '+05:30')}, Offset: ${timezoneOffset/60000} minutes`);
+          // Convert to UTC for storage
+          parsedDate = new Date(localDate.toISOString());
+          
+          // Show conversion for debugging
+          console.log(`[Vault] Timezone conversion: Local ${scheduledDate} -> UTC ${parsedDate.toISOString()}`);
         } else {
           // Parse the ISO string to maintain the exact time
           parsedDate = new Date(scheduledDate);

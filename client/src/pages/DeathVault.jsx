@@ -589,16 +589,16 @@ export default function DeathVault() {
         {slot.media?.length || 0} media, {slot.texts?.length || 0} texts
       </CardDescription>
 
-      {/* Recipient Block (FutureVault style but adapted) */}
+      {/* Recipient Email Display - Prominent Red */}
       {slot.recipientEmail && (
-        <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mb-3 w-full">
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 mb-3 w-full">
           <div className="flex items-center gap-2 justify-center">
-            <Mail size={16} className="text-rose-600" />
+            <Mail size={16} className="text-red-600" />
             <div>
-              <p className="text-xs font-semibold text-rose-700">
-                Legacy Recipient
+              <p className="text-xs font-semibold text-red-700">
+                Recipient Email
               </p>
-              <p className="text-lg font-bold text-rose-900">
+              <p className="text-base font-bold text-red-600">
                 {slot.recipientEmail}
               </p>
             </div>

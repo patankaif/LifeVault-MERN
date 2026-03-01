@@ -222,15 +222,23 @@ export default function Profile() {
     setDeleteError('');
     
     try {
+      const requestBody = { 
+        email: deleteEmail, 
+        otp: deleteOTP 
+      };
+      
+      console.log('[Delete Account] Sending request:', requestBody);
+      
       const response = await authFetch('/api/auth/delete-account', {
         method: 'DELETE',
-        body: JSON.stringify({ 
-          email: deleteEmail, 
-          otp: deleteOTP 
-        })
+        body: JSON.stringify(requestBody)
       });
       
+      console.log('[Delete Account] Response status:', response.status);
+      console.log('[Delete Account] Response headers:', response.headers);
+      
       const data = await response.json();
+      console.log('[Delete Account] Response data:', data);
       
       if (data.success) {
         setMessage({ type: 'success', text: 'Account deleted successfully.' });
@@ -240,9 +248,11 @@ export default function Profile() {
           navigate('/');
         }, 2000);
       } else {
+        console.log('[Delete Account] Error response:', data);
         setDeleteError(data.message || 'Failed to delete account');
       }
     } catch (err) {
+      console.log('[Delete Account] Network error:', err);
       setDeleteError('Failed to delete account. Please try again.');
     } finally {
       setDeleteLoading(false);

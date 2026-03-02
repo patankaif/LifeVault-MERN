@@ -238,7 +238,7 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
 
   // Define mailOptions outside try-catch to avoid scope issues
   const mailOptions = {
-    from: process.env.SMTP_USER,
+    from: 'noreply@life-vault-frontend-p200.onrender.com',
     to: recipientEmail,
     subject: `Life Vault - New Memory Shared: ${slotName}`,
     html: `
@@ -279,7 +279,7 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
       try {
         // Use Resend API format
         const resendData = {
-          from: process.env.SMTP_USER,
+          from: 'noreply@life-vault-frontend-p200.onrender.com',
           to: mailOptions.to,
           subject: mailOptions.subject,
           html: mailOptions.html,

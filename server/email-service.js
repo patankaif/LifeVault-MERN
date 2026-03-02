@@ -206,64 +206,64 @@ export async function testEmailService() {
 }
 
 export async function sendScheduledSlotNotification(recipientEmail, slotName, accessLink) {
-  try {
-    console.log('[Email Service] sendScheduledSlotNotification called with:', {
-      recipientEmail,
-      slotName,
-      accessLink,
-      transporterExists: !!transporter,
-      fallbackExists: !!fallbackTransporter,
-      smtpConfig: {
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        user: process.env.SMTP_USER,
-        hasPassword: !!process.env.SMTP_PASSWORD
-      }
-    });
-
-    // EMAIL VALIDATION ADDED HERE
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!recipientEmail || !emailRegex.test(recipientEmail)) {
-      console.log('[Email Service] Invalid recipient email:', recipientEmail);
-      return;
+  console.log('[Email Service] sendScheduledSlotNotification called with:', {
+    recipientEmail,
+    slotName,
+    accessLink,
+    transporterExists: !!transporter,
+    fallbackExists: !!fallbackTransporter,
+    smtpConfig: {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      user: process.env.SMTP_USER,
+      hasPassword: !!process.env.SMTP_PASSWORD
     }
+  });
 
-    if (!transporter) {
-      await initEmailService();
-    }
+  // EMAIL VALIDATION ADDED HERE
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!recipientEmail || !emailRegex.test(recipientEmail)) {
+    console.log('[Email Service] Invalid recipient email:', recipientEmail);
+    return;
+  }
 
-    console.log('[Email Service] Using transporter:', transporter ? 'SMTP' : 'Fallback');
+  if (!transporter) {
+    await initEmailService();
+  }
 
-    // Convert shared-vault link to schedule-slot link
-    const scheduleLink = accessLink.replace('/shared-vault/', '/schedule-slot/');
+  console.log('[Email Service] Using transporter:', transporter ? 'SMTP' : 'Fallback');
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: recipientEmail,
-      subject: `Life Vault - New Memory Shared: ${slotName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;">
-          <h2 style="color: #333;">Hello!</h2>
-          <p>Someone has shared a special memory slot titled "<strong>${slotName}</strong>" with you on Life Vault.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${scheduleLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Memory Slot</a>
-          </div>
-          <p style="color: #007bff; word-break: break-all;">${scheduleLink}</p>
+  // Convert shared-vault link to schedule-slot link
+  const scheduleLink = accessLink.replace('/shared-vault/', '/schedule-slot/');
+
+  // Define mailOptions outside try-catch to avoid scope issues
+  const mailOptions = {
+    from: process.env.SMTP_USER,
+    to: recipientEmail,
+    subject: `Life Vault - New Memory Shared: ${slotName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;">
+        <h2 style="color: #333;">Hello!</h2>
+        <p>Someone has shared a special memory slot titled "<strong>${slotName}</strong>" with you on Life Vault.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${scheduleLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Memory Slot</a>
         </div>
-      `,
-    };
+        <p style="color: #007bff; word-break: break-all;">${scheduleLink}</p>
+      </div>
+    `,
+  };
 
-    console.log('[Email Service] Attempting to send email with options:', {
-      from: mailOptions.from,
-      to: mailOptions.to,
-      subject: mailOptions.subject,
-      hasHtml: !!mailOptions.html
-    });
+  console.log('[Email Service] Attempting to send email with options:', {
+    from: mailOptions.from,
+    to: mailOptions.to,
+    subject: mailOptions.subject,
+    hasHtml: !!mailOptions.html
+  });
 
+  try {
     const result = await transporter.sendMail(mailOptions);
     console.log('[Email Service] SUCCESS: Notification sent to', recipientEmail, 'Result:', result);
     return result;
-
   } catch (error) {
     console.error('[Email Service] FAILED: Failed to send notification:', {
       error: error.message,

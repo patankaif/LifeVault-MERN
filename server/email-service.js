@@ -274,6 +274,12 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
     });
     
     // Try fallback transporter if primary fails
+    console.log('[Email Service] Checking fallback:', {
+      fallbackExists: !!fallbackTransporter,
+      errorMessage: error.message,
+      includesFallback: error.message.includes('fallback')
+    });
+    
     if (fallbackTransporter && !error.message.includes('fallback')) {
       console.log('[Email Service] Trying fallback transporter...');
       try {
@@ -294,6 +300,7 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
         throw fallbackError;
       }
     } else {
+      console.log('[Email Service] Fallback not available or error contains fallback');
       throw error;
     }
   }

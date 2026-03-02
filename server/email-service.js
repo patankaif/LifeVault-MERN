@@ -285,6 +285,7 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
           html: mailOptions.html,
         };
         
+        console.log('[Email Service] Resend data:', resendData);
         const fallbackResult = await fallbackTransporter.emails.send(resendData);
         console.log('[Email Service] FALLBACK SUCCESS: Notification sent via Resend to', mailOptions.to, 'Result:', fallbackResult);
         return fallbackResult;

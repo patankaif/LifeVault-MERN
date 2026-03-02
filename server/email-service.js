@@ -3,32 +3,34 @@ import nodemailer from 'nodemailer';
 let transporter = null;
 let fallbackTransporter = null;
 
-// Initialize fallback transporter (using Ethereal or other service)
+// Initialize fallback transporter (using Resend API)
 async function initFallbackTransporter() {
   try {
-    // For cloud platforms, use a simple HTTP-based email service
-    fallbackTransporter = {
-      sendMail: async (mailOptions) => {
-        console.log('[Email Service] Fallback: Would send email via HTTP API');
-        console.log('[Email Service] Fallback details:', {
-          to: mailOptions.to,
-          subject: mailOptions.subject,
-          hasHtml: !!mailOptions.html
-        });
-        
-        // For now, just log the email - in production you'd use a service like:
-        // - SendGrid API
-        // - Mailgun API  
-        // - AWS SES API
-        // - Resend API
-        
-        return {
-          messageId: 'fallback-' + Date.now(),
-          response: 'Email logged (no SMTP available)'
-        };
-      }
-    };
-    console.log('[Email Service] Fallback transporter initialized (HTTP API mode)');
+    // Use Resend API for reliable email delivery
+    const { Resend } = await import('resend');
+    
+    if (!process.env.RESEND_API_KEY) {
+      console.log('[Email Service] RESEND_API_KEY not found, using fallback');
+      fallbackTransporter = {
+        sendMail: async (mailOptions) => {
+          console.log('[Email Service] Fallback: Would send email via HTTP API');
+          console.log('[Email Service] Fallback details:', {
+            to: mailOptions.to,
+            subject: mailOptions.subject,
+            hasHtml: !!mailOptions.html
+          });
+          
+          return {
+            messageId: 'fallback-' + Date.now(),
+            response: 'Email logged (no API available)'
+          };
+        }
+      };
+    } else {
+      console.log('[Email Service] Initializing Resend API');
+      fallbackTransporter = new Resend(process.env.RESEND_API_KEY);
+    }
+    console.log('[Email Service] Fallback transporter initialized (Resend API mode)');
   } catch (error) {
     console.warn('[Email Service] Fallback transporter failed:', error.message);
   }
@@ -275,8 +277,16 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
     if (fallbackTransporter && !error.message.includes('fallback')) {
       console.log('[Email Service] Trying fallback transporter...');
       try {
-        const fallbackResult = await fallbackTransporter.sendMail(mailOptions);
-        console.log('[Email Service] FALLBACK SUCCESS: Notification sent via fallback to', recipientEmail, 'Result:', fallbackResult);
+        // Use Resend API format
+        const resendData = {
+          from: process.env.SMTP_USER,
+          to: mailOptions.to,
+          subject: mailOptions.subject,
+          html: mailOptions.html,
+        };
+        
+        const fallbackResult = await fallbackTransporter.emails.send(resendData);
+        console.log('[Email Service] FALLBACK SUCCESS: Notification sent via Resend to', mailOptions.to, 'Result:', fallbackResult);
         return fallbackResult;
       } catch (fallbackError) {
         console.error('[Email Service] FALLBACK FAILED:', fallbackError);

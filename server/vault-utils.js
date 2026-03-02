@@ -386,6 +386,7 @@ export async function sendScheduledSlots() {
     // Convert to IST (UTC+5:30)
     const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
     console.log(`[Vault] Current server time: ${istTime.toISOString().replace('Z', '+05:30')} (IST)`);
+    console.log(`[Vault] Current UTC time: ${now.toISOString()} (UTC)`);
 
     // Find all scheduled slots that are due to be sent
     const dueSchedulings = await db.collection('scheduling')
@@ -396,6 +397,15 @@ export async function sendScheduledSlots() {
       .toArray();
 
     console.log(`[Vault] Found ${dueSchedulings.length} due scheduled slots to send`);
+    
+    // Debug: Show all pending scheduled slots
+    const allPending = await db.collection('scheduling')
+      .find({ sent: false })
+      .toArray();
+    console.log(`[Vault] Total pending scheduled slots: ${allPending.length}`);
+    allPending.forEach(s => {
+      console.log(`[Vault] Pending slot: ${s._id}, scheduled: ${s.scheduledDate.toISOString()}, sent: ${s.sent}`);
+    });
 
     for (const scheduling of dueSchedulings) {
       const slot = await db.collection('slots').findOne({ _id: scheduling.slotId });

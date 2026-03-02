@@ -383,15 +383,15 @@ export async function sendScheduledSlots() {
   try {
     const db = await getDB();
     const now = new Date();
-    // Convert to IST (UTC+5:30)
+    // Convert to IST (UTC+5:30) for comparison
     const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
     console.log(`[Vault] Current server time: ${istTime.toISOString().replace('Z', '+05:30')} (IST)`);
     console.log(`[Vault] Current UTC time: ${now.toISOString()} (UTC)`);
 
-    // Find all scheduled slots that are due to be sent
+    // Find all scheduled slots that are due to be sent (using IST time for comparison)
     const dueSchedulings = await db.collection('scheduling')
       .find({
-        scheduledDate: { $lte: now },
+        scheduledDate: { $lte: istTime },
         sent: false,
       })
       .toArray();

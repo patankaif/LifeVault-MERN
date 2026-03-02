@@ -1,5 +1,8 @@
 export const authFetch = async (url, options = {}) => {
   const token = localStorage.getItem('lifeVaultToken');
+  
+  // Prepend API base URL if url is relative
+  const fullUrl = url.startsWith('http') ? url : `${import.meta.env.VITE_API_BASE_URL}${url}`;
 
   const headers = {
     'Content-Type': 'application/json',
@@ -10,7 +13,7 @@ export const authFetch = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
+  const response = await fetch(fullUrl, {
     ...options,
     headers,
   });

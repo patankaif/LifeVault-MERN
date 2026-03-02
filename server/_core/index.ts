@@ -97,12 +97,11 @@ async function startServer() {
   } catch (error) {
     console.warn("[Server] API routes not available:", error);
   }
-  // development mode uses Vite, production mode uses static files
+  // development mode uses Vite, production mode serves API only
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
-  } else {
-    serveStatic(app);
   }
+  // Remove serveStatic(app) for production since frontend is deployed separately
 
   // Set FRONTEND_URL early for email links
   const preferredPort = parseInt(process.env.PORT || "3001");

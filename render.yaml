@@ -26,7 +26,7 @@ services:
     env: static
     repo: https://github.com/patankaif/LifeVault-MERN.git
     rootDir: .
-    buildCommand: npm install && npx vite build
+    buildCommand: pnpm install --frozen-lockfile && pnpm run build
     staticPublishPath: dist/public
     envVars:
       - key: VITE_API_BASE_URL

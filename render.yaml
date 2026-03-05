@@ -23,11 +23,11 @@ services:
   # Frontend Service
   - type: web
     name: life-vault-frontend
-    env: node
+    env: static
     repo: https://github.com/patankaif/LifeVault-MERN.git
     rootDir: .
     buildCommand: npm install && npx vite build
-    startCommand: npx vite preview --port 3003 --host 0.0.0.0
+    staticPublishPath: dist/public
     envVars:
       - key: VITE_API_BASE_URL
         value: https://life-vault-api.onrender.com

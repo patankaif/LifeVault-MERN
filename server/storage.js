@@ -1,13 +1,10 @@
 // Preconfigured storage helpers for Manus WebDev templates
 // Uses local file storage for development
 
-import { ENV } from './_core/env.js';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
-type StorageConfig = { baseUrl: string; apiKey: string };
-
-function getStorageConfig(): StorageConfig {
+function getStorageConfig() {
   // Use different URLs for development vs production
   const isDevelopment = process.env.NODE_ENV === 'development';
   
@@ -38,52 +35,19 @@ function ensureUploadsDir() {
   return uploadsDir;
 }
 
-function buildUploadUrl(baseUrl: string, relKey: string): URL {
-  const url = new URL("v1/storage/upload", ensureTrailingSlash(baseUrl));
-  url.searchParams.set("path", normalizeKey(relKey));
-  return url;
-}
-
-async function buildDownloadUrl(
-  baseUrl: string,
-  relKey: string,
-  apiKey: string
-): Promise<string> {
-  // For local storage, just return the URL directly
-  return `${ensureTrailingSlash(baseUrl)}${normalizeKey(relKey)}`;
-}
-
-function ensureTrailingSlash(value: string): string {
+function ensureTrailingSlash(value) {
   return value.endsWith("/") ? value : `${value}/`;
 }
 
-function normalizeKey(relKey: string): string {
+function normalizeKey(relKey) {
   return relKey.replace(/^\/+/, "");
 }
 
-function toFormData(
-  data: Buffer | Uint8Array | string,
-  contentType: string,
-  fileName: string
-): FormData {
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
-  const form = new FormData();
-  form.append("file", blob, fileName || "file");
-  return form;
-}
-
-function buildAuthHeaders(apiKey: string): HeadersInit {
-  return { Authorization: `Bearer ${apiKey}` };
-}
-
 export async function storagePut(
-  relKey: string,
-  data: Buffer | Uint8Array | string,
+  relKey,
+  data,
   contentType = "application/octet-stream"
-): Promise<{ key: string; url: string }> {
+) {
   const key = normalizeKey(relKey);
   const config = getStorageConfig();
   
@@ -120,7 +84,7 @@ export async function storagePut(
   }
 }
 
-export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
+export async function storageGet(relKey) {
   const key = normalizeKey(relKey);
   const config = getStorageConfig();
   const fileName = key.split('/').pop() || key;

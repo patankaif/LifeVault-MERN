@@ -26,8 +26,8 @@ services:
     env: node
     repo: https://github.com/patankaif/LifeVault-MERN.git
     rootDir: .
-    buildCommand: npm install && npx vite build --outDir client/dist
-    startCommand: npx vite preview --outDir client/dist --port 3003
+    buildCommand: npm install && npm run build
+    startCommand: npx vite preview --port 3003
     envVars:
       - key: VITE_API_BASE_URL
         value: https://life-vault-api.onrender.com

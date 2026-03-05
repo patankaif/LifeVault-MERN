@@ -1,78 +1,53 @@
+import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 
 let transporter = null;
-let fallbackTransporter = null;
+let resendClient = null;
 
-// Initialize fallback transporter (using Resend API)
-async function initFallbackTransporter() {
+// Initialize Resend client as primary email service
+async function initResendClient() {
   try {
-    // Use Resend API for reliable email delivery
-    const { Resend } = await import('resend');
-    
     if (!process.env.RESEND_API_KEY) {
-      console.log('[Email Service] RESEND_API_KEY not found, using fallback');
-      fallbackTransporter = {
-        sendMail: async (mailOptions) => {
-          console.log('[Email Service] Fallback: Would send email via HTTP API');
-          console.log('[Email Service] Fallback details:', {
-            to: mailOptions.to,
-            subject: mailOptions.subject,
-            hasHtml: !!mailOptions.html
-          });
-          
-          return {
-            messageId: 'fallback-' + Date.now(),
-            response: 'Email logged (no API available)'
-          };
-        }
-      };
-    } else {
-      console.log('[Email Service] Initializing Resend API');
-      fallbackTransporter = new Resend(process.env.RESEND_API_KEY);
+      throw new Error('RESEND_API_KEY not found in environment variables');
     }
-    console.log('[Email Service] Fallback transporter initialized (Resend API mode)');
+    
+    console.log('[Email Service] Initializing Resend API as primary service');
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+    console.log('[Email Service] Resend client initialized successfully');
+    return true;
   } catch (error) {
-    console.warn('[Email Service] Fallback transporter failed:', error.message);
+    console.error('[Email Service] Resend initialization failed:', error.message);
+    throw error;
   }
 }
 
 export async function initEmailService() {
   try {
-    console.log('[Email Service] Initializing with config:', {
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      user: process.env.SMTP_USER,
-      hasPassword: !!process.env.SMTP_PASSWORD
-    });
+    console.log('[Email Service] Initializing with Resend API');
+    
+    // Initialize Resend as primary service
+    await initResendClient();
+    
+    // Initialize SMTP as fallback
+    await initSMTPFallback();
+    
+    return true;
+  } catch (error) {
+    console.error('[Email Service] Email service initialization failed:', error.message);
+    throw error;
+  }
+}
 
-    // Try SendGrid first (better for cloud platforms)
-    if (process.env.SMTP_HOST === 'smtp.sendgrid.net') {
-      transporter = nodemailer.createTransport({
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.SMTP_USER, // 'apikey'
-          pass: process.env.SMTP_PASSWORD, // SendGrid API key
-        },
-        tls: {
-          rejectUnauthorized: false
-        },
-        connectionTimeout: 20000,
-        greetingTimeout: 10000,
-        socketTimeout: 20000,
-        pool: true,
-        maxConnections: 1,
-        maxMessages: 100,
-        rateDelta: 1000,
-        rateLimit: 5
-      });
-    } else {
-      // Try Gmail with fallback
+// Initialize SMTP as fallback service
+async function initSMTPFallback() {
+  try {
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+      console.log('[Email Service] Initializing SMTP as fallback service');
+      
       let transporterConfig = {
         host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: true,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_PORT === '465',
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASSWORD,
@@ -90,42 +65,20 @@ export async function initEmailService() {
         rateLimit: 5
       };
 
-      try {
-        transporter = nodemailer.createTransport(transporterConfig);
-        await transporter.verify();
-        console.log('[Email Service] SMTP connection verified successfully (port 465)');
-      } catch (port465Error) {
-        console.log('[Email Service] Port 465 failed, trying port 587...', port465Error.message);
-        
-        transporterConfig.port = 587;
-        transporterConfig.secure = false;
-        
-        transporter = nodemailer.createTransport(transporterConfig);
-        await transporter.verify();
-        console.log('[Email Service] SMTP connection verified successfully (port 587)');
-      }
+      transporter = nodemailer.createTransport(transporterConfig);
+      await transporter.verify();
+      console.log('[Email Service] SMTP fallback initialized successfully');
+    } else {
+      console.log('[Email Service] SMTP configuration not found, skipping fallback');
     }
-    
-    // Initialize fallback
-    await initFallbackTransporter();
-    
-    return true;
   } catch (error) {
-    console.error('[Email Service] SMTP connection failed:', {
-      error: error.message,
-      code: error.code,
-      stack: error.stack
-    });
-    
-    // Initialize fallback as backup
-    await initFallbackTransporter();
-    throw error;
+    console.warn('[Email Service] SMTP fallback initialization failed:', error.message);
   }
 }
 
 export async function sendOTP(email, otp, purpose = 'signup') {
   try {
-    if (!transporter) {
+    if (!resendClient) {
       await initEmailService();
     }
 
@@ -161,46 +114,84 @@ export async function sendOTP(email, otp, purpose = 'signup') {
       `;
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    const emailData = {
+      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
       to: email,
       subject,
       html: htmlContent,
     };
 
-    const result = await transporter.sendMail(mailOptions);
-    console.log(`[Email Service] ${purpose} OTP sent to`, email);
+    const result = await resendClient.emails.send(emailData);
+    console.log(`[Email Service] ${purpose} OTP sent to`, email, 'via Resend');
     return result;
   } catch (error) {
-    console.error('[Email Service] Failed to send OTP:', error);
+    console.error('[Email Service] Failed to send OTP via Resend:', error);
+    
+    // Try SMTP fallback if available
+    if (transporter) {
+      console.log('[Email Service] Trying SMTP fallback for OTP...');
+      try {
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: email,
+          subject: purpose === 'delete-account' ? 'Life Vault - Account Deletion OTP' : 'Life Vault - Your OTP Verification Code',
+          html: htmlContent,
+        };
+        const fallbackResult = await transporter.sendMail(mailOptions);
+        console.log(`[Email Service] ${purpose} OTP sent via SMTP fallback`);
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[Email Service] SMTP fallback also failed:', fallbackError);
+      }
+    }
+    
     throw error;
   }
 }
 
 export async function testEmailService() {
   try {
-    if (!transporter) {
+    if (!resendClient) {
       await initEmailService();
     }
     
-    const testMailOptions = {
-      from: process.env.SMTP_USER,
-      to: process.env.SMTP_USER, // Send to self for testing
+    const testEmailData = {
+      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      to: 'lifevault09@gmail.com', // Test email
       subject: 'Life Vault - Email Service Test',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;">
           <h2 style="color: #333;">Email Service Test</h2>
-          <p>This is a test email from Life Vault to verify the email service is working correctly.</p>
+          <p>This is a test email from Life Vault to verify the Resend email service is working correctly.</p>
           <p>Sent at: ${new Date().toISOString()}</p>
+          <p><strong>Service:</strong> Resend API</p>
         </div>
       `,
     };
     
-    const result = await transporter.sendMail(testMailOptions);
-    console.log('[Email Service] Test email sent successfully:', result.messageId);
-    return { success: true, messageId: result.messageId };
+    const result = await resendClient.emails.send(testEmailData);
+    console.log('[Email Service] Test email sent successfully via Resend:', result);
+    return { success: true, messageId: result.id };
   } catch (error) {
     console.error('[Email Service] Test email failed:', error);
+    
+    // Try SMTP fallback
+    if (transporter) {
+      console.log('[Email Service] Trying SMTP fallback for test...');
+      try {
+        const testMailOptions = {
+          from: process.env.SMTP_USER,
+          to: process.env.SMTP_USER,
+          subject: 'Life Vault - Email Service Test (SMTP Fallback)',
+          html: `<p>Test email via SMTP fallback at ${new Date().toISOString()}</p>`,
+        };
+        const fallbackResult = await transporter.sendMail(testMailOptions);
+        return { success: true, messageId: fallbackResult.messageId, service: 'SMTP fallback' };
+      } catch (fallbackError) {
+        console.error('[Email Service] SMTP fallback test also failed:', fallbackError);
+      }
+    }
+    
     return { success: false, error: error.message };
   }
 }
@@ -210,14 +201,8 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
     recipientEmail,
     slotName,
     accessLink,
-    transporterExists: !!transporter,
-    fallbackExists: !!fallbackTransporter,
-    smtpConfig: {
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      user: process.env.SMTP_USER,
-      hasPassword: !!process.env.SMTP_PASSWORD
-    }
+    resendClientExists: !!resendClient,
+    smtpFallbackExists: !!transporter
   });
 
   // EMAIL VALIDATION ADDED HERE
@@ -227,18 +212,18 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
     return;
   }
 
-  if (!transporter) {
+  if (!resendClient) {
     await initEmailService();
   }
 
-  console.log('[Email Service] Using transporter:', transporter ? 'SMTP' : 'Fallback');
+  console.log('[Email Service] Using service:', resendClient ? 'Resend' : 'SMTP Fallback');
 
   // Convert shared-vault link to schedule-slot link
   const scheduleLink = accessLink.replace('/shared-vault/', '/schedule-slot/');
 
-  // Define mailOptions outside try-catch to avoid scope issues
-  const mailOptions = {
-    from: 'noreply@life-vault-frontend-p200.onrender.com',
+  // Define email data for Resend
+  const emailData = {
+    from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
     to: recipientEmail,
     subject: `Life Vault - New Memory Shared: ${slotName}`,
     html: `
@@ -253,19 +238,19 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
     `,
   };
 
-  console.log('[Email Service] Attempting to send email with options:', {
-    from: mailOptions.from,
-    to: mailOptions.to,
-    subject: mailOptions.subject,
-    hasHtml: !!mailOptions.html
+  console.log('[Email Service] Attempting to send email with data:', {
+    from: emailData.from,
+    to: emailData.to,
+    subject: emailData.subject,
+    hasHtml: !!emailData.html
   });
 
   try {
-    const result = await transporter.sendMail(mailOptions);
-    console.log('[Email Service] SUCCESS: Notification sent to', recipientEmail, 'Result:', result);
+    const result = await resendClient.emails.send(emailData);
+    console.log('[Email Service] SUCCESS: Notification sent to', recipientEmail, 'via Resend. Result:', result);
     return result;
   } catch (error) {
-    console.error('[Email Service] FAILED: Failed to send notification:', {
+    console.error('[Email Service] FAILED: Failed to send notification via Resend:', {
       error: error.message,
       code: error.code,
       stack: error.stack,
@@ -273,119 +258,223 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
       slotName
     });
     
-    // Try fallback transporter if primary fails
-    console.log('[Email Service] Checking fallback:', {
-      fallbackExists: !!fallbackTransporter,
-      errorMessage: error.message,
-      includesFallback: error.message.includes('fallback')
-    });
-    
-    if (fallbackTransporter && !error.message.includes('fallback')) {
-      console.log('[Email Service] Trying fallback transporter...');
+    // Try SMTP fallback if available
+    if (transporter) {
+      console.log('[Email Service] Trying SMTP fallback for notification...');
       try {
-        // Use Resend API format
-        const resendData = {
-          from: 'noreply@life-vault-frontend-p200.onrender.com',
-          to: mailOptions.to,
-          subject: mailOptions.subject,
-          html: mailOptions.html,
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: recipientEmail,
+          subject: emailData.subject,
+          html: emailData.html,
         };
-        
-        console.log('[Email Service] Resend data:', resendData);
-        const fallbackResult = await fallbackTransporter.emails.send(resendData);
-        console.log('[Email Service] FALLBACK SUCCESS: Notification sent via Resend to', mailOptions.to, 'Result:', fallbackResult);
+        const fallbackResult = await transporter.sendMail(mailOptions);
+        console.log('[Email Service] FALLBACK SUCCESS: Notification sent via SMTP to', recipientEmail, 'Result:', fallbackResult);
         return fallbackResult;
       } catch (fallbackError) {
-        console.error('[Email Service] FALLBACK FAILED:', fallbackError);
-        throw fallbackError;
+        console.error('[Email Service] SMTP fallback also failed:', fallbackError);
       }
-    } else {
-      console.log('[Email Service] Fallback not available or error contains fallback');
-      throw error;
     }
+    
+    throw error;
   }
 }
 
 export async function sendInactivityConfirmationEmail(email, confirmationLink) {
   try {
-    if (!transporter) {
+    if (!resendClient) {
       await initEmailService();
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    const emailData = {
+      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
       to: email,
       subject: 'Life Vault - Are You Still With Us?',
-      html: `<a href="${confirmationLink}">Confirm I'm Active</a>`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Life Vault - Are You Still With Us?</h2>
+          <p>We haven't seen you in a while. Click the link below to confirm you're still active:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${confirmationLink}" style="background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Confirm I'm Active</a>
+          </div>
+          <p style="color: #666; font-size: 12px;">If you didn't request this, please ignore this email.</p>
+        </div>
+      `,
     };
 
-    const result = await transporter.sendMail(mailOptions);
+    const result = await resendClient.emails.send(emailData);
     return result;
   } catch (error) {
-    console.error('[Email Service] Failed:', error);
+    console.error('[Email Service] Failed to send inactivity confirmation:', error);
+    
+    // Try SMTP fallback
+    if (transporter) {
+      try {
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: email,
+          subject: 'Life Vault - Are You Still With Us?',
+          html: `<a href="${confirmationLink}">Confirm I'm Active</a>`,
+        };
+        const fallbackResult = await transporter.sendMail(mailOptions);
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[Email Service] SMTP fallback failed:', fallbackError);
+      }
+    }
+    
     throw error;
   }
 }
 
 export async function sendDeathVaultNotification(recipientEmail, senderName, accessLink) {
   try {
-    if (!transporter) {
+    if (!resendClient) {
       await initEmailService();
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    const emailData = {
+      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
       to: recipientEmail,
       subject: `Life Vault - Important Message from ${senderName}`,
-      html: `<a href="${accessLink}">View Message</a>`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Important Message from ${senderName}</h2>
+          <p>You have received an important message through Life Vault.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${accessLink}" style="background-color: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Message</a>
+          </div>
+          <p style="color: #666; font-size: 12px;">This is an important message that requires your attention.</p>
+        </div>
+      `,
     };
 
-    const result = await transporter.sendMail(mailOptions);
+    const result = await resendClient.emails.send(emailData);
     return result;
   } catch (error) {
-    console.error('[Email Service] Failed:', error);
+    console.error('[Email Service] Failed to send death vault notification:', error);
+    
+    // Try SMTP fallback
+    if (transporter) {
+      try {
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: recipientEmail,
+          subject: `Life Vault - Important Message from ${senderName}`,
+          html: `<a href="${accessLink}">View Message</a>`,
+        };
+        const fallbackResult = await transporter.sendMail(mailOptions);
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[Email Service] SMTP fallback failed:', fallbackError);
+      }
+    }
+    
     throw error;
   }
 }
 
 export async function sendWelcomeEmail(email, name) {
   try {
-    if (!transporter) {
+    if (!resendClient) {
       await initEmailService();
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    const emailData = {
+      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
       to: email,
       subject: 'Welcome to Life Vault!',
-      html: `<h2>Welcome ${name}</h2>`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Welcome to Life Vault, ${name}!</h2>
+          <p>Thank you for joining Life Vault. We're excited to help you preserve your memories and share them with loved ones.</p>
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #007bff;">Getting Started:</h3>
+            <ul>
+              <li>Create your first memory vault</li>
+              <li>Add precious memories and photos</li>
+              <li>Share vaults with trusted contacts</li>
+              <li>Set up scheduled deliveries</li>
+            </ul>
+          </div>
+          <p>If you have any questions, don't hesitate to reach out to our support team.</p>
+          <p style="color: #666;">Best regards,<br/>The Life Vault Team</p>
+        </div>
+      `,
     };
 
-    const result = await transporter.sendMail(mailOptions);
+    const result = await resendClient.emails.send(emailData);
     return result;
   } catch (error) {
-    console.error('[Email Service] Failed:', error);
+    console.error('[Email Service] Failed to send welcome email:', error);
+    
+    // Try SMTP fallback
+    if (transporter) {
+      try {
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: email,
+          subject: 'Welcome to Life Vault!',
+          html: `<h2>Welcome ${name}</h2>`,
+        };
+        const fallbackResult = await transporter.sendMail(mailOptions);
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[Email Service] SMTP fallback failed:', fallbackError);
+      }
+    }
+    
     throw error;
   }
 }
 
 export async function sendSlotDeliveryConfirmation(email, slotName, recipientEmail) {
   try {
-    if (!transporter) {
+    if (!resendClient) {
       await initEmailService();
     }
 
-    const mailOptions = {
-      from: process.env.SMTP_USER,
+    const emailData = {
+      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
       to: email,
       subject: `Slot Delivered: ${slotName}`,
-      html: `<p>Delivered to ${recipientEmail}</p>`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #28a745;">Memory Slot Successfully Delivered</h2>
+          <p>Your memory slot "<strong>${slotName}</strong>" has been successfully delivered to <strong>${recipientEmail}</strong>.</p>
+          <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+            <h3 style="color: #155724;">Delivery Details:</h3>
+            <p><strong>Slot Name:</strong> ${slotName}</p>
+            <p><strong>Recipient:</strong> ${recipientEmail}</p>
+            <p><strong>Delivery Time:</strong> ${new Date().toLocaleString()}</p>
+          </div>
+          <p>You can view the delivery status in your Life Vault dashboard.</p>
+          <p style="color: #666;">Best regards,<br/>The Life Vault Team</p>
+        </div>
+      `,
     };
 
-    const result = await transporter.sendMail(mailOptions);
+    const result = await resendClient.emails.send(emailData);
     return result;
   } catch (error) {
-    console.error('[Email Service] Failed:', error);
+    console.error('[Email Service] Failed to send slot delivery confirmation:', error);
+    
+    // Try SMTP fallback
+    if (transporter) {
+      try {
+        const mailOptions = {
+          from: process.env.SMTP_USER,
+          to: email,
+          subject: `Slot Delivered: ${slotName}`,
+          html: `<p>Delivered to ${recipientEmail}</p>`,
+        };
+        const fallbackResult = await transporter.sendMail(mailOptions);
+        return fallbackResult;
+      } catch (fallbackError) {
+        console.error('[Email Service] SMTP fallback failed:', fallbackError);
+      }
+    }
+    
     throw error;
   }
 }

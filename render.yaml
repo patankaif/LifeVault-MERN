@@ -1,0 +1,37 @@
+services:
+  # Backend API Service
+  - type: web
+    name: life-vault-api
+    env: node
+    repo: https://github.com/patankaif/LifeVault-MERN.git
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGODB_URI
+        value: mongodb+srv://patankaif23_db_user:lifevault123@lifevault.29gld6x.mongodb.net/lifevault?retryWrites=true&w=majority
+      - key: RESEND_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        value: 8839e0acac438d4de37ecbc26dd746f8e496a14bb6d597ad02300864c2017ab61301996b92deb37be2bb308d91bb67b2fa8aba647d503065d6312828c1240a9a
+    healthCheckPath: /api/health
+
+  # Frontend Service
+  - type: web
+    name: life-vault-frontend
+    env: node
+    repo: https://github.com/patankaif/LifeVault-MERN.git
+    rootDir: .
+    buildCommand: npm run build
+    startCommand: npm run preview
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://life-vault-api.onrender.com
+      - key: VITE_ANALYTICS_ENDPOINT
+        value: https://life-vault-frontend.onrender.com
+      - key: VITE_ANALYTICS_WEBSITE_ID
+        value: prod

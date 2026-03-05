@@ -189,4 +189,8 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 3003,
+    host: true,
+  },
 });

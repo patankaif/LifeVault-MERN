@@ -1,11 +1,21 @@
 import express from 'express';
-import { storagePut, storageGet } from './storage.ts';
+import { storagePut, storageGet } from './storage.js';
 import * as authUtils from './auth-utils.js';
 import * as vaultUtils from './vault-utils.js';
 import * as inactivityUtils from './inactivity-utils.js';
 import { connectDB, getDB } from './db-mongo.js';
 
 const router = express.Router();
+
+// Health check endpoint for Render
+router.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    service: 'life-vault-api',
+    version: '1.0.0'
+  });
+});
 
 // Middleware to verify JWT token
 const verifyToken = async (req, res, next) => {

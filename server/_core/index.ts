@@ -63,6 +63,7 @@ async function startServer() {
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'https://life-vault-frontend.onrender.com',
+      'https://life-vault-frontend-k50d.onrender.com',
       'https://life-vault-frontend-p200.onrender.com', // Add actual production URL
       'http://localhost:3000',
       'http://localhost:3003',

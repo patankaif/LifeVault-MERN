@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { safeJsonParse } from '@/lib/apiHelpers';
 
 export default function ForgotPassword() {
   const [, navigate] = useLocation();
@@ -18,18 +19,20 @@ export default function ForgotPassword() {
 
   const sendOTP = async () => {
     if (!email) {
-      setError('Email is required');
+      setError('Please enter your email');
       return;
     }
 
     setLoading(true);
+    setError();
+    
     try {
-      const response = await fetch('/api/auth/forgot-password', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await response.json();
+      const data = await safeJsonParse(response);
       if (data.success) {
         setStep('otp');
         setSuccessMessage('OTP sent to your email');
@@ -37,7 +40,7 @@ export default function ForgotPassword() {
         setError(data.message || 'Failed to send OTP');
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -50,13 +53,15 @@ export default function ForgotPassword() {
     }
 
     setLoading(true);
+    setError('');
+    
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
       });
-      const data = await response.json();
+      const data = await safeJsonParse(response);
       if (data.success) {
         setStep('password');
         setSuccessMessage('OTP verified');
@@ -64,7 +69,7 @@ export default function ForgotPassword() {
         setError(data.message || 'Invalid OTP');
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to verify OTP');
     } finally {
       setLoading(false);
     }
@@ -87,22 +92,24 @@ export default function ForgotPassword() {
     }
 
     setLoading(true);
+    setError('');
+    
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, newPassword }),
       });
-      const data = await response.json();
+      const data = await safeJsonParse(response);
       if (data.success) {
         setStep('success');
         setSuccessMessage('Password reset successfully!');
         setTimeout(() => navigate('/login'), 2000);
       } else {
-        setError(data.message || 'Password reset failed');
+        setError(data.message || 'Failed to reset password');
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }

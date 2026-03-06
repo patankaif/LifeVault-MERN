@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
 import { authFetch } from '@/lib/authFetch';
+import { safeJsonParse } from '@/lib/apiHelpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +49,7 @@ export default function Dashboard() {
   const fetchNextScheduled = async () => {
     try {
       const response = await authFetch('/api/next-scheduled');
-      const data = await response.json();
+      const data = await safeJsonParse(response);
       if (data.success) {
         setNextScheduled(data.scheduling);
       }
@@ -60,7 +61,7 @@ export default function Dashboard() {
   const fetchInactivityStatus = async () => {
     try {
       const response = await authFetch('/api/inactivity-status');
-      const data = await response.json();
+      const data = await safeJsonParse(response);
       if (data.success) {
         setInactivityStatus(data.status);
       }

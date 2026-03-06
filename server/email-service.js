@@ -78,9 +78,14 @@ async function initSMTPFallback() {
 
 export async function sendOTP(email, otp, purpose = 'signup') {
   try {
+    console.log('[Email Service] sendOTP called for:', email, 'purpose:', purpose);
+    
     if (!resendClient) {
+      console.log('[Email Service] Resend client not initialized, initializing...');
       await initEmailService();
     }
+
+    console.log('[Email Service] Resend client status:', resendClient ? 'initialized' : 'not initialized');
 
     let subject, htmlContent;
 
@@ -122,6 +127,7 @@ export async function sendOTP(email, otp, purpose = 'signup') {
     };
 
     const result = await resendClient.emails.send(emailData);
+    console.log('[Email Service] Email sent successfully:', result);
     console.log(`[Email Service] ${purpose} OTP sent to`, email, 'via Resend');
     return result;
   } catch (error) {

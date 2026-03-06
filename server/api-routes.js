@@ -102,17 +102,43 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
-// Send password reset OTP
-router.post('/auth/forgot-password', async (req, res) => {
+// Test email endpoint
+router.post('/test-email', async (req, res) => {
   try {
     const { email } = req.body;
+    console.log('[Test Email] Request received for:', email);
+    
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    const result = await authUtils.sendOTPToEmail(email);
+    // Import email service
+    const { testEmailService } = await import('./email-service.js');
+    const result = await testEmailService();
+    console.log('[Test Email] Result:', result);
     res.json(result);
   } catch (error) {
+    console.error('[Test Email] Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Send password reset OTP
+router.post('/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    console.log('[Forgot Password] Request received for email:', email);
+    
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    console.log('[Forgot Password] Sending OTP to email service...');
+    const result = await authUtils.sendOTPToEmail(email);
+    console.log('[Forgot Password] OTP result:', result);
+    res.json(result);
+  } catch (error) {
+    console.error('[Forgot Password] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

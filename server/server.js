@@ -33,6 +33,24 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 // API routes
 app.use('/api', apiRoutes);
 
+// Test route
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Auth test route
+app.get('/api/auth/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Auth routes are working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Root health check
 app.get('/', (req, res) => {
   res.status(200).json({ 

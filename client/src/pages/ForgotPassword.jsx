@@ -27,7 +27,7 @@ export default function ForgotPassword() {
     setError();
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/forgot-password`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -56,7 +56,7 @@ export default function ForgotPassword() {
     setError('');
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/verify-otp`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
@@ -95,7 +95,7 @@ export default function ForgotPassword() {
     setError('');
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/reset-password`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, newPassword }),

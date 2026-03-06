@@ -117,6 +117,21 @@ router.post('/auth/forgot-password', async (req, res) => {
   }
 });
 
+// Verify OTP for password reset
+router.post('/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and OTP are required' });
+    }
+
+    const result = await authUtils.verifyOTP(email, otp);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Reset password with OTP
 router.post('/auth/reset-password', async (req, res) => {
   try {

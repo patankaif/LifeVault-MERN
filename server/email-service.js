@@ -115,7 +115,7 @@ export async function sendOTP(email, otp, purpose = 'signup') {
     }
 
     const emailData = {
-      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      from: 'Life Vault <onboarding@resend.dev>',
       to: email,
       subject,
       html: htmlContent,
@@ -156,7 +156,7 @@ export async function testEmailService() {
     }
     
     const testEmailData = {
-      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      from: 'Life Vault <onboarding@resend.dev>',
       to: 'lifevault09@gmail.com', // Test email
       subject: 'Life Vault - Email Service Test',
       html: `
@@ -223,7 +223,7 @@ export async function sendScheduledSlotNotification(recipientEmail, slotName, ac
 
   // Define email data for Resend
   const emailData = {
-    from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+    from: 'Life Vault <onboarding@resend.dev>',
     to: recipientEmail,
     subject: `Life Vault - New Memory Shared: ${slotName}`,
     html: `
@@ -287,7 +287,7 @@ export async function sendInactivityConfirmationEmail(email, confirmationLink) {
     }
 
     const emailData = {
-      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      from: 'Life Vault <onboarding@resend.dev>',
       to: email,
       subject: 'Life Vault - Are You Still With Us?',
       html: `
@@ -334,7 +334,7 @@ export async function sendDeathVaultNotification(recipientEmail, senderName, acc
     }
 
     const emailData = {
-      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      from: 'Life Vault <onboarding@resend.dev>',
       to: recipientEmail,
       subject: `Life Vault - Important Message from ${senderName}`,
       html: `
@@ -381,7 +381,7 @@ export async function sendWelcomeEmail(email, name) {
     }
 
     const emailData = {
-      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      from: 'Life Vault <onboarding@resend.dev>',
       to: email,
       subject: 'Welcome to Life Vault!',
       html: `
@@ -435,7 +435,7 @@ export async function sendSlotDeliveryConfirmation(email, slotName, recipientEma
     }
 
     const emailData = {
-      from: 'Life Vault <noreply@life-vault-frontend-p200.onrender.com>',
+      from: 'Life Vault <onboarding@resend.dev>',
       to: email,
       subject: `Slot Delivered: ${slotName}`,
       html: `

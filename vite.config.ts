@@ -172,6 +172,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
   },
+  base: '/',
   server: {
     port: 3003,
     host: true,

@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import apiRoutes from './api-routes.js';
+import apiRoutes from './api-routes-simple.js';
 import path from 'path';
 
 // Initialize Express app

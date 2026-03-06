@@ -24,14 +24,16 @@ app.use(cors({
 }));
 
 // Configure body parser
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // API routes
+console.log('[Server] Loading API routes...');
 app.use('/api', apiRoutes);
+console.log('[Server] API routes loaded successfully');
 
 // Test route
 app.get('/api/test', (req, res) => {

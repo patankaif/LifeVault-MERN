@@ -25,6 +25,8 @@ services:
       - key: SMTP_USER
         value: patankaif23@gmail.com
       - key: SMTP_PASSWORD
+        value: lifevault123@2025
+      - key: RESEND_API_KEY
         sync: false
     healthCheckPath: /api/health
 

@@ -65,6 +65,15 @@ async function initSMTPFallback() {
         rateLimit: 5
       };
 
+      // Special configuration for Gmail
+      if (process.env.SMTP_HOST === 'smtp.gmail.com') {
+        transporterConfig.service = 'gmail';
+        transporterConfig.auth = {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD,
+        };
+      }
+
       transporter = nodemailer.createTransport(transporterConfig);
       await transporter.verify();
       console.log('[Email Service] SMTP fallback initialized successfully');
@@ -111,15 +120,20 @@ async function sendOTPSMTP(email, otp, purpose = 'signup') {
   }
 
   const mailOptions = {
-    from: process.env.SMTP_USER,
+    from: `"Life Vault" <${process.env.SMTP_USER}>`,
     to: email,
     subject,
     html: htmlContent,
   };
 
-  const result = await transporter.sendMail(mailOptions);
-  console.log(`[Email Service] ${purpose} OTP sent to`, email, 'via SMTP');
-  return result;
+  try {
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`[Email Service] ${purpose} OTP sent to`, email, 'via SMTP');
+    return result;
+  } catch (error) {
+    console.error('[Email Service] SMTP send error:', error);
+    throw error;
+  }
 }
 
 export async function sendOTP(email, otp, purpose = 'signup') {

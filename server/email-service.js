@@ -23,13 +23,13 @@ async function initResendClient() {
 
 export async function initEmailService() {
   try {
-    console.log('[Email Service] Initializing with Resend API');
+    console.log('[Email Service] Initializing with SMTP as primary service');
     
-    // Initialize Resend as primary service
-    await initResendClient();
-    
-    // Initialize SMTP as fallback
+    // Initialize SMTP as primary service
     await initSMTPFallback();
+    
+    // Initialize Resend as fallback
+    await initResendClient();
     
     return true;
   } catch (error) {
@@ -76,13 +76,72 @@ async function initSMTPFallback() {
   }
 }
 
+// Send OTP via SMTP
+async function sendOTPSMTP(email, otp, purpose = 'signup') {
+  let subject, htmlContent;
+
+  if (purpose === 'delete-account') {
+    subject = 'Life Vault - Account Deletion OTP';
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #dc2626;">Life Vault - Account Deletion Request</h2>
+        <p>You requested to permanently delete your Life Vault account.</p>
+        <p style="color: #dc2626; font-weight: bold;">⚠️ This action is permanent and cannot be undone.</p>
+        <p>Your One-Time Password (OTP) for account deletion is:</p>
+        <div style="background-color: #fef2f2; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0; border: 2px solid #dc2626;">
+          <h1 style="color: #dc2626; letter-spacing: 5px; margin: 0;">${otp}</h1>
+        </div>
+        <p style="color: #666;">This OTP is valid for 10 minutes.</p>
+        <p style="color: #999; font-size: 12px;">If you didn't request this deletion, please secure your account immediately.</p>
+      </div>
+    `;
+  } else {
+    subject = 'Life Vault - Your OTP Verification Code';
+    htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Life Vault OTP Verification</h2>
+        <p>Your One-Time Password (OTP) for Life Vault is:</p>
+        <div style="background-color: #f0f0f0; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+          <h1 style="color: #007bff; letter-spacing: 5px; margin: 0;">${otp}</h1>
+        </div>
+        <p style="color: #666;">This OTP is valid for 10 minutes.</p>
+        <p style="color: #999; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+      </div>
+    `;
+  }
+
+  const mailOptions = {
+    from: process.env.SMTP_USER,
+    to: email,
+    subject,
+    html: htmlContent,
+  };
+
+  const result = await transporter.sendMail(mailOptions);
+  console.log(`[Email Service] ${purpose} OTP sent to`, email, 'via SMTP');
+  return result;
+}
+
 export async function sendOTP(email, otp, purpose = 'signup') {
   try {
     console.log('[Email Service] sendOTP called for:', email, 'purpose:', purpose);
     
+    // Try SMTP first (now primary)
+    if (transporter) {
+      console.log('[Email Service] Using SMTP to send OTP');
+      try {
+        const result = await sendOTPSMTP(email, otp, purpose);
+        console.log('[Email Service] OTP sent via SMTP:', result);
+        return result;
+      } catch (smtpError) {
+        console.error('[Email Service] SMTP failed, trying Resend:', smtpError);
+      }
+    }
+    
+    // Try Resend as fallback
     if (!resendClient) {
       console.log('[Email Service] Resend client not initialized, initializing...');
-      await initEmailService();
+      await initResendClient();
     }
 
     console.log('[Email Service] Resend client status:', resendClient ? 'initialized' : 'not initialized');
